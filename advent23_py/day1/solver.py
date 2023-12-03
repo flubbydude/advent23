@@ -1,10 +1,13 @@
-from aocd import get_data
+from aocd import get_data #type: ignore
+import re
 
 DAY = 1
 
 DIGIT_NUM_STRS = [str(i) for i in range(1, 10)]
 DIGIT_WORD_STRS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
 DIGIT_STRS = DIGIT_NUM_STRS + DIGIT_WORD_STRS
+
+DIGIT_STRS_RE = '|'.join(DIGIT_STRS)
 
 def part1(inp: list[str]):
     result = 0
@@ -49,5 +52,6 @@ def main(data: str):
     print(part2(inp))
 
 if __name__ == '__main__':
-    main(get_data(day=DAY, year=2023))
-
+    data = get_data(day=DAY, year=2023) #type: ignore
+    assert isinstance(data, str)
+    main(data)
