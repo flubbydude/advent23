@@ -61,7 +61,7 @@ REVERSED_FIRST_DIGIT_STR_RE = rf".*?({DIGIT_STRS_RE[::-1]})"
 
 def process_line_re(line: str):
     start_match = re.match(FIRST_DIGIT_STR_RE, line)
-    end_match = re.search(REVERSED_FIRST_DIGIT_STR_RE, line[::-1])
+    end_match = re.match(REVERSED_FIRST_DIGIT_STR_RE, line[::-1])
 
     assert start_match is not None
     assert end_match is not None
