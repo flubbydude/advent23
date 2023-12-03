@@ -28,5 +28,6 @@ class Test(unittest.TestCase):
 
         self.assertEqual(part2(part2_input), PART2_SOLUTION)
 
+
 if __name__ == '__main__':
     unittest.main()

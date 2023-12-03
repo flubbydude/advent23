@@ -37,8 +37,10 @@ def process_line(line: str):
     first_appearances = (line.find(num_str) for num_str in DIGIT_STRS)
     last_appearances = (line.rfind(num_str) for num_str in DIGIT_STRS)
 
-    _, first_index = min((j, i) for i, j in enumerate(first_appearances) if j != -1)
-    _, last_index = max((j, i) for i, j in enumerate(last_appearances) if j != -1)
+    _, first_index = min((j, i)
+                         for i, j in enumerate(first_appearances) if j != -1)
+    _, last_index = max((j, i)
+                        for i, j in enumerate(last_appearances) if j != -1)
 
     if first_index >= 9:
         first_index -= 9

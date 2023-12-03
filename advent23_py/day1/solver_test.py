@@ -50,7 +50,8 @@ class Test(unittest.TestCase):
         part2_input = parse_data(get_data(day=DAY, year=2023))
 
         for line in part2_input:
-            self.assertEqual(process_line(line), process_line_re(line), f"{line = }")
+            self.assertEqual(process_line(
+                line), process_line_re(line), f"{line = }")
 
 
 if __name__ == "__main__":
