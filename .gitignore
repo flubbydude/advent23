@@ -1,3 +1,5 @@
 advent23_py/day*/__pycache__
 
-**/*.vscode/*
+**/*.vscode/
+
+**/.DS_STORE
