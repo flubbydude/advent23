@@ -79,15 +79,11 @@ impl From<&[u8]> for Game {
 }
 
 fn parse_puzzle_input(puzzle_input: Vec<u8>) -> Vec<Game> {
-    let mut result = Vec::new();
-    for line in puzzle_input.split(|&c| c == b'\n') {
-        if line.is_empty() {
-            continue;
-        }
-        result.push(Game::from(line))
-    }
-
-    result
+    puzzle_input
+        .split(|&c| c == b'\n')
+        .filter(|line| !line.is_empty())
+        .map(Game::from)
+        .collect()
 }
 
 fn part1(games: &[Game]) -> i32 {
