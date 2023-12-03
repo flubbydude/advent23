@@ -55,13 +55,9 @@ def part2(inp: list[str]):
     return sum(process_line(line) for line in inp)
 
 
-FIRST_DIGIT_STR_RE = rf".*?({DIGIT_STRS_RE})"
-REVERSED_FIRST_DIGIT_STR_RE = rf".*?({DIGIT_STRS_RE[::-1]})"
-
-
 def process_line_re(line: str):
-    start_match = re.match(FIRST_DIGIT_STR_RE, line)
-    end_match = re.match(REVERSED_FIRST_DIGIT_STR_RE, line[::-1])
+    start_match = re.search(f"({DIGIT_STRS_RE})", line)
+    end_match = re.search(f"({DIGIT_STRS_RE[::-1]})", line[::-1])
 
     assert start_match is not None
     assert end_match is not None
