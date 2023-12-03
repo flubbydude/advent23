@@ -1,5 +1,5 @@
 import unittest
-from solver import main, parse_data, part1, part2
+from .solver import main, parse_data, part1, part2
 
 PART1_TEST_DATA = ""
 PART1_SOLUTION = 142
