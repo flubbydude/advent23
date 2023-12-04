@@ -107,10 +107,11 @@ fn part2(puzzle_input: &[&[u8]], engine_numbers: &[EngineNumber]) -> i32 {
 fn main() -> Result<()> {
     let file_contents = std::fs::read("input.txt")?;
 
-    let puzzle_input = file_contents
-        .split(|&c| c == b'\n' || c == b'\r')
-        .filter(|line| !line.is_empty())
+    let puzzle_input = std::str::from_utf8(&file_contents)?
+        .lines()
+        .map(|line| line.as_bytes())
         .collect::<Vec<_>>();
+
     let engine_numbers = find_engine_numbers(&puzzle_input)?;
 
     println!("{}", part1(&puzzle_input, &engine_numbers));
