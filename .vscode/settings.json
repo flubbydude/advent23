@@ -1,0 +1,10 @@
+{
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./advent23_py",
+        "-p",
+        "*_test.py"
+    ],
+    "python.testing.unittestEnabled": true
+}
