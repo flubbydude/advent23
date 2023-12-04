@@ -1,5 +1,5 @@
 import unittest
-from .solver import (
+from solver import (
     parse_data,
     part1,
     part2,

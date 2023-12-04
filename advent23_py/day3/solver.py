@@ -63,9 +63,6 @@ def part2(puzzle_input: list[str], engine_numbers: list[EngineNumber]):
 
     return sum(prod(l) for l in d.values() if len(l) >= 2)
 
-def parse_data(data: str):
-    return data.splitlines()
-
 def find_engine_numbers(puzzle_input: list[str]):
     result: list[EngineNumber] = []
     for i, line in enumerate(puzzle_input):
@@ -75,7 +72,7 @@ def find_engine_numbers(puzzle_input: list[str]):
     return result
 
 def main(data: str):
-    puzzle_input = parse_data(data)
+    puzzle_input = data.splitlines()
 
     engine_numbers = find_engine_numbers(puzzle_input)
 
