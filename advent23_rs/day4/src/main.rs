@@ -3,11 +3,11 @@ use std::error;
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 
 fn get_num_of_winning_numbers(line: &str) -> usize {
-    let mut set = [false; 100];
-
     let all_nums = line.split_once(':').unwrap().1;
 
     let (winning_nums_str, your_nums_str) = all_nums.split_once('|').unwrap();
+
+    let mut set = [false; 100];
 
     for num in winning_nums_str
         .split_ascii_whitespace()
