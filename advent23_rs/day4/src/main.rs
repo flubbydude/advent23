@@ -42,13 +42,12 @@ fn part2(puzzle_input: &[&str]) -> i32 {
 
     for (i, line) in puzzle_input.iter().enumerate() {
         let result = get_num_of_winning_numbers(line);
-        let current_amt = card_amts[i];
-        for elem in card_amts[i + 1..=i + result].iter_mut() {
-            *elem += current_amt;
+        for j in 1..=result {
+            card_amts[i + j] += card_amts[i];
         }
     }
 
-    card_amts.into_iter().sum()
+    card_amts.iter().sum()
 }
 
 fn main() -> Result<()> {
