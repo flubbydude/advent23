@@ -95,7 +95,13 @@ fn part2(puzzle_input: &[&[u8]], engine_numbers: &[EngineNumber]) -> i32 {
         for (i, j) in engine_number.get_neighbors(num_rows, num_cols) {
             if puzzle_input[i][j] == b'*' {
                 map.entry((i, j))
-                    .and_modify(|val| *val *= -engine_number.number)
+                    .and_modify(|val| {
+                        *val *= if *val < 0 {
+                            -engine_number.number
+                        } else {
+                            engine_number.number
+                        };
+                    })
                     .or_insert(-engine_number.number);
             }
         }
