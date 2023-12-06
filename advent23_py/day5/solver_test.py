@@ -1,24 +1,58 @@
 import unittest
 from solver import main, parse_data, part1, part2
 
-PART1_TEST_DATA = ""
-PART1_SOLUTION = 142
+PART1_TEST_DATA = """seeds: 79 14 55 13
 
-PART2_TEST_DATA = ""
-PART2_SOLUTION = 281
+seed-to-soil map:
+50 98 2
+52 50 48
+
+soil-to-fertilizer map:
+0 15 37
+37 52 2
+39 0 15
+
+fertilizer-to-water map:
+49 53 8
+0 11 42
+42 0 7
+57 7 4
+
+water-to-light map:
+88 18 7
+18 25 70
+
+light-to-temperature map:
+45 77 23
+81 45 19
+68 64 13
+
+temperature-to-humidity map:
+0 69 1
+1 0 69
+
+humidity-to-location map:
+60 56 37
+56 93 4"""
+
+PART1_SOLUTION = 35
+
+PART2_TEST_DATA = PART1_TEST_DATA
+PART2_SOLUTION = 46
 
 
 class Test(unittest.TestCase):
 
     def test_part1(self):
-        part1_input = parse_data(PART1_TEST_DATA)
+        seeds, maps = parse_data(PART1_TEST_DATA)
 
-        self.assertEqual(part1(part1_input), PART1_SOLUTION)
+        self.assertEqual(part1(seeds, maps), PART1_SOLUTION)
 
     def test_part2(self):
-        part2_input = parse_data(PART2_TEST_DATA)
+        seeds, maps = parse_data(PART2_TEST_DATA)
 
-        self.assertEqual(part2(part2_input), PART2_SOLUTION)
+        self.assertEqual(part2(seeds, maps), PART2_SOLUTION)
+
 
 if __name__ == '__main__':
     unittest.main()
