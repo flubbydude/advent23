@@ -230,12 +230,10 @@ fn part2(seeds: &[usize], maps: &[Vec<MapRange>]) -> usize {
         .map(|chunk| chunk[0]..chunk[0] + chunk[1]);
 
     seed_ranges
-        .map(|seed_range| {
+        .flat_map(|seed_range| {
             maps.follow_range(seed_range)
                 .into_iter()
                 .map(|src_range| src_range.start)
-                .min()
-                .unwrap()
         })
         .min()
         .unwrap()
