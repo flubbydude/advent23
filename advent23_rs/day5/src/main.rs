@@ -8,7 +8,7 @@ enum OverlapInfo<T> {
     // option(option (before), overlap), after
     // therefore cant have before and after but no overlap
     HasAfter(Option<(Option<T>, T)>, T),
-    // option before, option overlap
+    // option before, overlap
     NoAfterHasOverlap(Option<T>, T),
     // everything comes before
     AllBefore(T),
