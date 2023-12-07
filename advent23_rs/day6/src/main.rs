@@ -11,13 +11,15 @@ impl Race {
     // assume f64 does not cause an error, since numbers are a good size
     fn compute_elite_hold_times(&self) -> Option<RangeInclusive<usize>> {
         // solves -x^2 + time_limit * x - record > 0
-        let determinant = (self.time as f64).powi(2) - 4.0 * self.record as f64;
+        let time_f = self.time as f64;
+
+        let determinant = time_f * time_f - 4.0 * self.record as f64;
         if determinant < 0.0 {
             return None;
         }
         let sqrt_determinant = determinant.sqrt();
-        let xmin_f = (self.time as f64 - sqrt_determinant) / 2.0;
-        let xmax_f = (self.time as f64 + sqrt_determinant) / 2.0;
+        let xmin_f = (time_f - sqrt_determinant) / 2.0;
+        let xmax_f = (time_f + sqrt_determinant) / 2.0;
 
         let mut xmin = xmin_f.ceil() as usize;
         let mut xmax = xmax_f.floor() as usize;
