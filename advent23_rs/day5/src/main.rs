@@ -4,13 +4,14 @@ use std::{
     usize,
 };
 
-// TODO: make this an enum, one for having after
-// and one for not having after
-#[derive(Debug)]
-struct OverlapInfo<T> {
-    before: Option<T>,
-    overlap: Option<T>,
-    after: Option<T>,
+enum OverlapInfo<T> {
+    // option(option (before), overlap), after
+    // therefore cant have before and after but no overlap
+    HasAfter(Option<(Option<T>, T)>, T),
+    // option before, option overlap
+    NoAfterHasOverlap(Option<T>, T),
+    // everything comes before
+    AllBefore(T),
 }
 
 trait RangeExt
@@ -25,40 +26,28 @@ impl<T: Ord + Copy> RangeExt for Range<T> {
     // splits self into multiple smaller ranges which add to self
     fn split_on_overlap(self, other: &Self) -> OverlapInfo<Self> {
         if self.end <= other.start {
-            return OverlapInfo {
-                before: Some(self),
-                overlap: None,
-                after: None,
-            };
+            // self comes before and then there is no overlap
+            return OverlapInfo::AllBefore(self);
         }
 
         if self.start >= other.end {
-            return OverlapInfo {
-                before: None,
-                overlap: None,
-                after: Some(self),
-            };
+            // self comes after and there is no overlap
+            return OverlapInfo::HasAfter(None, self);
         }
 
         // there is some overlap => find it
-        let overlap = Some(max(self.start, other.start)..min(self.end, other.end));
+        let overlap = max(self.start, other.start)..min(self.end, other.end);
 
-        let before = if self.start < other.start {
+        let maybe_before = if self.start < other.start {
             Some(self.start..other.start)
         } else {
             None
         };
 
-        let after = if self.end > other.end {
-            Some(other.end..self.end)
+        if self.end > other.end {
+            OverlapInfo::HasAfter(Some((maybe_before, overlap)), other.end..self.end)
         } else {
-            None
-        };
-
-        OverlapInfo {
-            before,
-            overlap,
-            after,
+            OverlapInfo::NoAfterHasOverlap(maybe_before, overlap)
         }
     }
 }
@@ -131,25 +120,89 @@ fn parse_input(puzzle_input: &str) -> (Vec<usize>, Vec<Vec<MapRange>>) {
     (seeds, maps)
 }
 
-trait MapSlice {
+trait Map {
+    fn follow(&self, seed: usize) -> usize;
+
+    fn follow_ranges(&self, seed_range: &[Range<usize>]) -> Vec<Range<usize>>;
+}
+
+// assumes the map is in sorted order!
+impl Map for [MapRange] {
+    fn follow(&self, src_val: usize) -> usize {
+        // TODO: use binary search to find the range containing src_val
+        // (there can be at most 1)
+        // for now just use a linear scan
+        for map_range in self.iter() {
+            if map_range.range.contains(&src_val) {
+                return map_range.src_to_dest(src_val);
+            }
+        }
+        src_val
+    }
+
+    // could make a follow_range
+    // function as well but idk how hard it would be
+    // with lifetimes and such so I'm gonna stop for rn
+    fn follow_ranges(&self, src_ranges: &[Range<usize>]) -> Vec<Range<usize>> {
+        let mut result = Vec::new();
+
+        for src_range in src_ranges {
+            let mut remaining_range = Some((*src_range).clone());
+
+            // TODO: can use binary search to find the first place where the overlap
+            // is not all after and then can linear scan from there.
+            // for now just use a linear scan
+            for map_range in self.iter() {
+                let Some(range) = remaining_range else {
+                    break;
+                };
+
+                match range.split_on_overlap(&map_range.range) {
+                    OverlapInfo::HasAfter(maybe_before_and_overlap, after) => {
+                        if let Some((maybe_before, overlap)) = maybe_before_and_overlap {
+                            result.push(map_range.src_to_dest_range(overlap));
+                            if let Some(before) = maybe_before {
+                                result.push(before);
+                            }
+                        }
+                        remaining_range = Some(after);
+                    }
+                    OverlapInfo::NoAfterHasOverlap(maybe_before, overlap) => {
+                        result.push(map_range.src_to_dest_range(overlap));
+                        if let Some(before) = maybe_before {
+                            result.push(before);
+                        }
+                        remaining_range = None;
+                        break;
+                    }
+                    OverlapInfo::AllBefore(before) => {
+                        result.push(before);
+                        remaining_range = None;
+                        break;
+                    }
+                }
+            }
+
+            if let Some(range) = remaining_range {
+                result.push(range);
+            }
+        }
+
+        result
+    }
+}
+
+trait MapSequence {
     fn follow(&self, seed: usize) -> usize;
     fn follow_range(&self, seed_range: Range<usize>) -> Vec<Range<usize>>;
 }
 
-impl MapSlice for &[Vec<MapRange>] {
+impl MapSequence for [Vec<MapRange>] {
     fn follow(&self, seed: usize) -> usize {
         let mut src_val = seed;
         // for each map
         for map in self.iter() {
-            // for map range in the map (ex: for each range in seed-to-soil map)
-            // TODO: make this its own function
-            // i.e. src_val = map.follow(src_val);
-            for map_range in map {
-                if map_range.range.contains(&src_val) {
-                    src_val = map_range.src_to_dest(src_val);
-                    break;
-                }
-            }
+            src_val = map.follow(src_val);
         }
 
         src_val
@@ -158,65 +211,8 @@ impl MapSlice for &[Vec<MapRange>] {
     // assume each map is sorted by start of map range
     fn follow_range(&self, seed_range: Range<usize>) -> Vec<Range<usize>> {
         let mut src_ranges = vec![seed_range];
-
-        // for each map
         for map in self.iter() {
-            // TODO: make this its own function
-            // i.e. src_ranges = map.follow_range(src_ranges)
-            let mut next_src_ranges = Vec::new();
-
-            for src_range in src_ranges {
-                // for each map range in the map (ex: for each range in seed-to-soil map)
-                // sorted by start
-
-                // TODO: redo this section assuming changed OverlapInfo
-                // to be an enum containing either option before + option overlap
-                // or option before + option overlap + after (after is not an option)
-                //
-                // this will make remaining range able to not be an option and the
-                // code will be much more readable
-                let mut remaining_range = Some(src_range);
-                for map_range in map {
-                    // Note: panics if remaining range is none
-                    // => break whenever remaining range is None!
-                    let overlap_info = remaining_range.unwrap().split_on_overlap(&map_range.range);
-
-                    if let Some(overlap) = overlap_info.overlap {
-                        next_src_ranges.push(map_range.src_to_dest_range(overlap));
-
-                        if let Some(before) = overlap_info.before {
-                            next_src_ranges.push(before);
-                        }
-
-                        // some overlap after => keep going
-                        // no overlap after => stop!
-                        remaining_range = overlap_info.after;
-                        if remaining_range.is_none() {
-                            break;
-                        }
-                    } else if overlap_info.before.is_some() {
-                        // if this is true, since maps are sorted
-                        // in terms of map_range.range.start,
-                        // then no more ranges will have overlap.
-
-                        // equiv to next_src_ranges.push(overlap_info.before)
-                        // if we used a let Some(before)
-                        remaining_range = overlap_info.before;
-                        break;
-                    } else {
-                        // otherwise, the entire range is after
-                        // and remaining range is some!
-                        // this is because a range can't be before and after
-                        // but not overlap!
-                        remaining_range = overlap_info.after;
-                    }
-                }
-                if let Some(the_range) = remaining_range {
-                    next_src_ranges.push(the_range);
-                }
-            }
-
-            src_ranges = next_src_ranges;
+            src_ranges = map.follow_ranges(&src_ranges);
         }
 
         src_ranges
