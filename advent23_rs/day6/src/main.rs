@@ -36,6 +36,13 @@ impl Race {
             None
         }
     }
+
+    fn num_elite_hold_times(&self) -> usize {
+        match self.compute_elite_hold_times() {
+            Some(range) => range.count(),
+            None => 0,
+        }
+    }
 }
 
 fn parse_input_part1(puzzle_input: &str) -> Vec<Race> {
@@ -83,20 +90,11 @@ fn parse_input_part2(puzzle_input: &str) -> Race {
 }
 
 fn part1(races: &[Race]) -> usize {
-    races
-        .iter()
-        .map(|race| match race.compute_elite_hold_times() {
-            Some(range) => range.count(),
-            None => 0,
-        })
-        .product()
+    races.iter().map(Race::num_elite_hold_times).product()
 }
 
 fn part2(race: &Race) -> usize {
-    match race.compute_elite_hold_times() {
-        Some(range) => range.count(),
-        None => 0,
-    }
+    race.num_elite_hold_times()
 }
 
 fn main() {
