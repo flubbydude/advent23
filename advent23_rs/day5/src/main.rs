@@ -4,6 +4,8 @@ use std::{
     usize,
 };
 
+// TODO: make this an enum, one for having after
+// and one for not having after
 #[derive(Debug)]
 struct OverlapInfo<T> {
     before: Option<T>,
@@ -140,6 +142,8 @@ impl MapSlice for &[Vec<MapRange>] {
         // for each map
         for map in self.iter() {
             // for map range in the map (ex: for each range in seed-to-soil map)
+            // TODO: make this its own function
+            // i.e. src_val = map.follow(src_val);
             for map_range in map {
                 if map_range.range.contains(&src_val) {
                     src_val = map_range.src_to_dest(src_val);
@@ -157,11 +161,20 @@ impl MapSlice for &[Vec<MapRange>] {
 
         // for each map
         for map in self.iter() {
+            // TODO: make this its own function
+            // i.e. src_ranges = map.follow_range(src_ranges)
             let mut next_src_ranges = Vec::new();
 
             for src_range in src_ranges {
                 // for each map range in the map (ex: for each range in seed-to-soil map)
                 // sorted by start
+
+                // TODO: redo this section assuming changed OverlapInfo
+                // to be an enum containing either option before + option overlap
+                // or option before + option overlap + after (after is not an option)
+                //
+                // this will make remaining range able to not be an option and the
+                // code will be much more readable
                 let mut remaining_range = Some(src_range);
                 for map_range in map {
                     // Note: panics if remaining range is none
