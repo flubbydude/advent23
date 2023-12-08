@@ -156,7 +156,8 @@ impl HandExt for Hand {
                     OnePair
                 }
             }
-            _ => HighCard,
+            1 => HighCard,
+            _ => unreachable!(),
         }
     }
 }
