@@ -1,6 +1,4 @@
-use std::cmp::Reverse;
-
-use array_init::array_init;
+use std::{array, cmp::Reverse, iter::repeat};
 
 use num_derive::FromPrimitive;
 use variant_count::VariantCount;
@@ -83,13 +81,13 @@ trait HandExt {
 impl HandExt for Hand {
     fn from_part1(value: &str) -> Self {
         let cards_as_u8: [u8; 5] = value.as_bytes().try_into().unwrap();
-        array_init(|i| cards_as_u8[i].into())
+        array::from_fn(|i| cards_as_u8[i].into())
     }
 
     // in part 2, Js are Jokers instead of Jacks
     fn from_part2(value: &str) -> Self {
         let cards_as_u8: [u8; 5] = value.as_bytes().try_into().unwrap();
-        array_init(|i| match cards_as_u8[i] {
+        array::from_fn(|i| match cards_as_u8[i] {
             b'J' => Card::Joker,
             card => card.into(),
         })
@@ -139,7 +137,7 @@ impl HandExt for Hand {
                         // get card to replace joker with
                         // make a new hand with other card instead of jokers everywhere
                         // and get its hand type
-                        let hand_with_other_card: Hand = array_init(|j| match self[j] {
+                        let hand_with_other_card: Hand = array::from_fn(|j| match self[j] {
                             Card::Joker => other_card,
                             card => card,
                         });
@@ -153,12 +151,14 @@ impl HandExt for Hand {
 
         // No jokers in the hand:
 
+        // ex: AAQ2A => [3, 1, 1, 0, 0]
+        // place the card amounts in an array on the stack then fill excess spots with 0
+        // iterator is infinite so unwrap won't panic :)
+        let mut counts: [i32; 5] =
+            array_init::from_iter(counts_map.into_iter().filter(|x| *x != 0).chain(repeat(0)))
+                .unwrap();
+
         // sort the card amounts from highest to lowest
-        // ex: AAQ2A => [3, 1, 1]
-        let mut counts = counts_map
-            .into_iter()
-            .filter(|&x| x != 0)
-            .collect::<Vec<_>>();
         counts.sort_unstable_by_key(|&x| Reverse(x));
 
         // get the hand type from the counts
