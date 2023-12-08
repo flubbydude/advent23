@@ -18,7 +18,6 @@ enum HandType {
 }
 
 /*
- *
  * VariantCount is just used to get the amount of types of cards (14)
  * for use in counting cards into an array of size (num of types of card)
  * where index = card as usize,
@@ -183,10 +182,9 @@ impl HandExt for Hand {
 
 impl From<&str> for HandAndBid {
     // converts one line of input into a hand and bid pair
-    // ex: "3A399 27" => HandAndBid([Three, Ace, Three, Nine, Nine], 27)
+    // ex: "3J399 27" => HandAndBid([Three, Jack, Three, Nine, Nine], 27)
     fn from(line: &str) -> Self {
         let (cards, bid_str) = line.split_once(' ').unwrap();
-
         HandAndBid(Hand::from_part1(cards), bid_str.parse().unwrap())
     }
 }
@@ -214,7 +212,7 @@ fn total_winnings(mut hands_and_bids: Vec<HandAndBid>) -> i32 {
     hands_and_bids.sort_unstable_by_key(|hab| hab.0);
     hands_and_bids.sort_by_key(|hab| hab.0.get_hand_type());
 
-    // sum the bid (hab.1) multiplied by rank (i + 1)
+    // sum the bids (hab.1) multiplied by rank (i + 1)
     hands_and_bids
         .iter()
         .enumerate()
