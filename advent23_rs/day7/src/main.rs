@@ -1,5 +1,6 @@
 use std::{array, cmp::Reverse, iter::repeat};
 
+use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use variant_count::VariantCount;
 
@@ -60,7 +61,7 @@ impl From<u8> for Card {
             b'T' => Ten,
             digit => {
                 assert!(digit >= b'2' && digit <= b'9');
-                num::FromPrimitive::from_u8(digit - b'1').unwrap() // assuming Two = 1
+                Card::from_u8(digit - b'1').unwrap() // assuming Two = 1
             }
         }
     }
@@ -107,49 +108,25 @@ impl HandExt for Hand {
     fn get_hand_type(&self) -> HandType {
         use HandType::*;
 
-        let counts_map: CardCounts = self.count_hand();
+        let mut counts_map: CardCounts = self.count_hand();
 
-        // if hand contains a joker
-        if counts_map[Card::Joker as usize] != 0 {
-            // if only contains joker, then five of a kind
-            if counts_map[Card::Joker as usize] == 5 {
-                return FiveOfAKind;
-            }
-
-            // otherwise, get the best hand type when joker is changed to a diff card in the hand
-            // assumption: all Jokers should change to the same card for the best hand
-            return counts_map
-                .into_iter()
-                .enumerate()
-                .filter_map(|(i, amt)| {
-                    // amt is amount of times the card i
-                    // appears in the hand
-
-                    // i is the usize representation of a card
-                    // so we cast i into a card :)
-                    let other_card = num::FromPrimitive::from_usize(i).unwrap();
-
-                    // if current card (i) is joker or
-                    // if it appears 0 times, don't try to replace joker with card i
-                    if other_card == Card::Joker || amt == 0 {
-                        None
-                    } else {
-                        // get card to replace joker with
-                        // make a new hand with other card instead of jokers everywhere
-                        // and get its hand type
-                        let hand_with_other_card: Hand = array::from_fn(|j| match self[j] {
-                            Card::Joker => other_card,
-                            card => card,
-                        });
-
-                        Some(hand_with_other_card.get_hand_type())
-                    }
-                })
-                .max()
-                .unwrap();
+        let joker_amt = counts_map[Card::Joker as usize];
+        if joker_amt == 5 {
+            return FiveOfAKind;
         }
 
-        // No jokers in the hand:
+        // if hand contains a joker, set it to the most common non joker
+        if joker_amt != 0 {
+            let most_common_non_joker = counts_map
+                .iter()
+                .enumerate()
+                .filter(|&(i, _)| i != Card::Joker as usize)
+                .max_by(|(_, count1), (_, count2)| count1.cmp(count2))
+                .unwrap();
+
+            counts_map[most_common_non_joker.0] += counts_map[Card::Joker as usize];
+            counts_map[Card::Joker as usize] = 0;
+        }
 
         // ex: AAQ2A => [3, 1, 1, 0, 0]
         // place the card amounts in an array on the stack then fill excess spots with 0
