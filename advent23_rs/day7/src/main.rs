@@ -1,8 +1,9 @@
-use std::{cmp::Reverse, collections::HashMap};
+use std::cmp::Reverse;
 
 use array_init::array_init;
 
 use num_derive::FromPrimitive;
+use variant_count::VariantCount;
 
 // allow to sort on hand type (for example five of a kind is best)
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -16,9 +17,18 @@ enum HandType {
     FiveOfAKind,
 }
 
-// from primitive allows me to cast to a card instead of writing out 2-9 lol
-// others are for use in hashmap, sorting, copying on cards
-#[derive(Copy, Clone, FromPrimitive, PartialEq, Eq, Hash, PartialOrd, Ord)]
+/*
+ *
+ * VariantCount is just used to get the amount of types of cards (14)
+ * for use in counting cards into an array of size (num of types of card)
+ * where index = card as usize,
+ * and value is the number of times the card appears in a hand.
+ *
+ * from primitive allows me to cast to a card instead of writing out 2-9 lol.
+ *
+ * others are for use in sorting on and copying cards
+ */
+#[derive(Copy, Clone, FromPrimitive, PartialEq, Eq, PartialOrd, Ord, VariantCount /*, Hash */)]
 enum Card {
     Joker,
     Two,
@@ -43,6 +53,7 @@ struct HandAndBid(Hand, i32);
 
 impl From<u8> for Card {
     // panics if value is not a valid card
+    // uses J as Jack
     fn from(value: u8) -> Self {
         use Card::*;
         match value {
@@ -59,11 +70,15 @@ impl From<u8> for Card {
     }
 }
 
+type CardCounts = [i32; Card::VARIANT_COUNT];
+
 trait HandExt {
+    // both panic if the value is not a valid hand
+    // ex of a valid hand: "46645"
     fn from_part1(value: &str) -> Self;
     fn from_part2(value: &str) -> Self;
 
-    fn count_hand(&self) -> HashMap<Card, i32>;
+    fn count_hand(&self) -> CardCounts;
     fn get_hand_type(&self) -> HandType;
 }
 
@@ -82,11 +97,12 @@ impl HandExt for Hand {
         })
     }
 
-    fn count_hand(&self) -> HashMap<Card, i32> {
-        let mut result = HashMap::new();
+    fn count_hand(&self) -> CardCounts {
+        // sets all the values to 0 at start
+        let mut result: CardCounts = Default::default();
 
         for &card in self.iter() {
-            result.entry(card).and_modify(|val| *val += 1).or_insert(1);
+            result[card as usize] += 1;
         }
 
         result
@@ -95,32 +111,52 @@ impl HandExt for Hand {
     fn get_hand_type(&self) -> HandType {
         use HandType::*;
 
-        let mut counts_map = self.count_hand();
+        let counts_map: CardCounts = self.count_hand();
 
         // if hand contains a joker
-        if counts_map.contains_key(&Card::Joker) {
+        if counts_map[Card::Joker as usize] != 0 {
             // if only contains joker, then five of a kind
-            if counts_map.remove(&Card::Joker).unwrap() == 5 {
+            if counts_map[Card::Joker as usize] == 5 {
                 return FiveOfAKind;
             }
 
             // otherwise, get the best hand type when joker is changed to a diff card in the hand
             // assumption: all Jokers should change to the same card for the best hand
             return counts_map
-                .keys()
-                .map(|&other_card| {
-                    let hand_with_other_card: Hand = array_init(|i| match self[i] {
-                        Card::Joker => other_card,
-                        card => card,
-                    });
-                    hand_with_other_card.get_hand_type()
+                .into_iter()
+                .enumerate()
+                .filter_map(|(i, amt)| {
+                    // amt is amount of times the card i
+                    // appears in the hand
+
+                    // if current card (i) is joker or
+                    // if it appears 0 times, don't try to replace joker with card i
+
+                    let other_card = num::FromPrimitive::from_usize(i).unwrap();
+
+                    if other_card == Card::Joker || amt == 0 {
+                        None
+                    } else {
+                        // get card to replace joker with
+                        // make a new hand with other card instead of jokers everywhere
+                        // and get its hand type
+                        let hand_with_other_card: Hand = array_init(|j| match self[j] {
+                            Card::Joker => other_card,
+                            card => card,
+                        });
+
+                        Some(hand_with_other_card.get_hand_type())
+                    }
                 })
                 .max()
                 .unwrap();
         }
 
         // sort the card amounts from highest to lowest
-        let mut counts = counts_map.values().copied().collect::<Vec<_>>();
+        let mut counts = counts_map
+            .into_iter()
+            .filter(|&x| x != 0)
+            .collect::<Vec<_>>();
         counts.sort_unstable_by_key(|&x| Reverse(x));
 
         match counts[0] {
