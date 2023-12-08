@@ -47,7 +47,6 @@ enum Card {
 
 type Hand = [Card; 5];
 
-#[derive(Copy, Clone)]
 struct HandAndBid(Hand, i32);
 
 impl From<u8> for Card {
@@ -128,11 +127,12 @@ impl HandExt for Hand {
                     // amt is amount of times the card i
                     // appears in the hand
 
-                    // if current card (i) is joker or
-                    // if it appears 0 times, don't try to replace joker with card i
-
+                    // i is the usize representation of a card
+                    // so we cast i into a card :)
                     let other_card = num::FromPrimitive::from_usize(i).unwrap();
 
+                    // if current card (i) is joker or
+                    // if it appears 0 times, don't try to replace joker with card i
                     if other_card == Card::Joker || amt == 0 {
                         None
                     } else {
@@ -151,13 +151,17 @@ impl HandExt for Hand {
                 .unwrap();
         }
 
+        // No jokers in the hand:
+
         // sort the card amounts from highest to lowest
+        // ex: AAQ2A => [3, 1, 1]
         let mut counts = counts_map
             .into_iter()
             .filter(|&x| x != 0)
             .collect::<Vec<_>>();
         counts.sort_unstable_by_key(|&x| Reverse(x));
 
+        // get the hand type from the counts
         match counts[0] {
             5 => FiveOfAKind,
             4 => FourOfAKind,
