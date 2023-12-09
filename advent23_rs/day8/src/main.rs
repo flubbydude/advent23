@@ -3,6 +3,7 @@ use priority_queue::PriorityQueue;
 use regex::Regex;
 use std::collections::HashMap;
 
+#[derive(Clone, Copy)]
 enum Direction {
     Left,
     Right,
@@ -10,67 +11,37 @@ enum Direction {
 
 type Graph<'a> = HashMap<&'a str, [&'a str; 2]>;
 
-fn part1(instructions: &[Direction], graph: &Graph) -> usize {
-    // follow instructions repeatedly on graph until you get to ZZZ
-    // return the number of instructions followed
-    let mut current = "AAA";
-    for (i, instruction) in instructions.iter().cycle().enumerate() {
-        if current == "ZZZ" {
+fn follow_directions(instructions: &[Direction], graph: &Graph, start: &str, goal: &str) -> usize {
+    let mut current = start;
+    for (i, &instruction) in instructions.iter().cycle().enumerate() {
+        if current == goal {
             return i;
         }
 
-        current = graph[current][*instruction as usize];
+        current = graph[current][instruction as usize];
     }
 
     unreachable!()
 }
 
-trait GraphExt {
-    fn djikstras(&self, start: &str) -> HashMap<&str, i32>;
-    fn all_source_djikstras(&self) -> HashMap<&str, HashMap<&str, i32>>;
+fn part1(instructions: &[Direction], graph: &Graph) -> usize {
+    // follow instructions repeatedly on graph until you get to ZZZ
+    // return the number of instructions followed
+    follow_directions(instructions, graph, "AAA", "ZZZ")
 }
 
-impl GraphExt for Graph<'_> {
-    fn djikstras(&self, start: &str) -> HashMap<&str, i32> {
-        let mut queue = PriorityQueue::new();
-        let mut dists = HashMap::new();
-        for &node in self.keys() {
-            dists.insert(node, if node == start { 0 } else { i32::MAX });
-            queue.push(node, if node == start { 0 } else { i32::MAX });
-        }
-
-        while !queue.is_empty() {
-            let (node, _) = queue.pop().unwrap();
-
-            for &neighbor in self.get(node).unwrap() {
-                let alt = dists[node] + 1;
-                if alt < dists[neighbor] {
-                    dists[neighbor] = alt;
-                    queue.push_decrease(neighbor, alt);
-                }
-            }
-        }
-
-        dists
-    }
-
-    fn all_source_djikstras(&self) -> HashMap<&str, HashMap<&str, i32>> {
-        self.keys()
-            .map(|&node| (node, self.djikstras(node)))
-            .collect()
-    }
-}
-
-fn part2(graph: &Graph) -> i32 {
-    let ends_in_a = graph
+// TODO: i was too high
+// should take instructions for each 'A'
+// until finding cycle, noting the linear equations
+// for turns that 'A' into a 'Z'
+// where there a cycle => tells which indices of time
+// take 'A' to 'Z' => take LCM of power set of this and choose the min
+// power set in this is size 6^6=46656 so not that bad
+// power set through iteration and zips? zip crate? maybe
+fn part2(instructions: &[Direction], graph: &Graph) -> usize {
+    let start_nodes = graph
         .keys()
-        .filter(|&node| node.ends_with('a'))
-        .cloned()
-        .collect::<Vec<_>>();
-
-    let ends_in_z = graph
-        .keys()
-        .filter(|&node| node.ends_with('z'))
+        .filter(|&node| node.ends_with('A'))
         .cloned()
         .collect::<Vec<_>>();
 }
@@ -116,7 +87,7 @@ fn main() {
     let (instructions, graph) = parse_input(puzzle_input);
 
     println!("{}", part1(&instructions, &graph));
-    println!("{}", part2(&graph));
+    println!("{}", part2(&instructions, &graph));
 }
 
 #[cfg(test)]
@@ -137,6 +108,16 @@ mod tests {
                                 BBB = (AAA, ZZZ)\n\
                                 ZZZ = (ZZZ, ZZZ)";
 
+    const TEST_INPUT_C: &str = "LR\n\n\
+                                11A = (11B, XXX)
+                                11B = (XXX, 11Z)
+                                11Z = (11B, XXX)
+                                22A = (22B, XXX)
+                                22B = (22C, 22C)
+                                22C = (22Z, 22Z)
+                                22Z = (22B, 22B)
+                                XXX = (XXX, XXX)";
+
     #[test]
     fn test_part1_a() {
         let (instructions, graph) = parse_input(TEST_INPUT_A);
@@ -151,8 +132,10 @@ mod tests {
         assert_eq!(part1(&instructions, &graph), 6);
     }
 
-    // #[test]
-    // fn test_part2() {
-    //     assert_eq!(part2(TEST_INPUT), 5905);
-    // }
+    #[test]
+    fn test_part2() {
+        let (instructions, graph) = parse_input(TEST_INPUT_C);
+
+        assert_eq!(part2(&instructions, &graph), 6);
+    }
 }
