@@ -3,32 +3,57 @@ use std::mem;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-#[derive(Debug, EnumIter, PartialEq, Eq, Clone, Copy)]
+use num::FromPrimitive;
+use num_derive::FromPrimitive;
+
+#[derive(Debug, EnumIter, PartialEq, Eq, Clone, Copy, FromPrimitive)]
 enum Direction {
     North,
-    South,
     East,
+    South,
     West,
 }
 
+#[derive(FromPrimitive, Clone, Copy)]
+enum Turn {
+    Right,
+    Left,
+    Straight,
+    Backwards,
+}
+
 impl Direction {
-    fn as_vec2(&self) -> (isize, isize) {
+    fn get_successor(&self, i: usize, j: usize) -> (usize, usize) {
         use Direction::*;
         match *self {
-            North => (-1, 0),
-            South => (1, 0),
-            East => (0, 1),
-            West => (0, -1),
+            North => (i - 1, j),
+            South => (i + 1, j),
+            East => (i, j + 1),
+            West => (i, j - 1),
         }
     }
 
     fn opposite(&self) -> Direction {
+        // Direction::from_i32((*self as i32 + 2) % 4).unwrap()
         use Direction::*;
         match *self {
             North => South,
             South => North,
             East => West,
             West => East,
+        }
+    }
+
+    fn get_turn_since_last(&self, last_dir: Direction) -> Turn {
+        Turn::from_i32((*self as i32 + 4 - last_dir as i32) % 4).unwrap()
+    }
+
+    fn turn(&self, turn: Turn) -> Direction {
+        match turn {
+            Turn::Right => Direction::from_i32((*self as i32 + 1) % 4).unwrap(),
+            Turn::Left => Direction::from_i32((*self as i32 + 3) % 4).unwrap(),
+            Turn::Straight => *self,
+            Turn::Backwards => self.opposite(),
         }
     }
 }
@@ -49,7 +74,7 @@ enum Tile {
 impl Tile {
     fn connects_to(&self, dir: Direction) -> bool {
         match self.dirs() {
-            Some(dirs) => dirs[0] == dir || dirs[1] == dir,
+            Some([d1, d2]) => dir == d1 || dir == d2,
             None => false,
         }
     }
@@ -70,8 +95,14 @@ impl Tile {
     }
 }
 
-fn part1(puzzle_input: &[&[Tile]], num_cols: usize) -> i32 {
-    // first find the position of the S
+#[repr(u8)]
+enum TileInfo {
+    Enclosed,
+    InLoop,
+    NotEnclosed,
+}
+
+fn find_s_and_start_dir(puzzle_input: &[&[Tile]], num_cols: usize) -> (usize, usize, Direction) {
     let (s_row, s_col) = puzzle_input
         .iter()
         .enumerate()
@@ -79,68 +110,169 @@ fn part1(puzzle_input: &[&[Tile]], num_cols: usize) -> i32 {
         .next()
         .unwrap();
 
-    for start_dir in Direction::iter() {
-        let (d_row, d_col) = start_dir.as_vec2();
-        let start_row = s_row as isize + d_row;
-        let start_col = s_col as isize + d_col;
+    let start_dir = Direction::iter()
+        .filter_map(|dir| {
+            let (start_row, start_col) = dir.get_successor(s_row, s_col);
 
-        if start_row < 0 || start_col < 0 {
-            continue;
-        }
-
-        let start_row = start_row as usize;
-        let start_col = start_col as usize;
-
-        if start_row >= puzzle_input.len() || start_col >= num_cols {
-            continue;
-        }
-
-        if !puzzle_input[start_row][start_row].connects_to(start_dir.opposite()) {
-            continue;
-        }
-
-        println!(
-            "{:?} connects to {:?} = {}",
-            puzzle_input[start_row][start_col],
-            start_dir.opposite(),
-            puzzle_input[start_row][start_row].connects_to(start_dir.opposite())
-        );
-
-        println!(
-            "{:?} connects to {:?} = {}",
-            Tile::SouthWest,
-            Direction::East,
-            Tile::SouthWest.connects_to(Direction::East)
-        );
-
-        let mut row = start_row;
-        let mut col = start_col;
-
-        let mut i = 0;
-        let mut prev_dir = start_dir.opposite();
-        // go until reaching the S again
-        while row != s_row && col != s_col {
-            let tile = puzzle_input[row][col];
-            let dirs = tile.dirs().unwrap();
-
-            let dir = if dirs[0] == prev_dir {
-                dirs[1]
+            if start_row < puzzle_input.len()
+                && start_col < num_cols
+                && puzzle_input[start_row][start_col].connects_to(dir.opposite())
+            {
+                Some(dir)
             } else {
-                dirs[0]
-            };
+                None
+            }
+        })
+        .next()
+        .unwrap();
 
-            let (d_row, d_col) = dir.as_vec2();
-            row = (row as isize + d_row) as usize;
-            col = (col as isize + d_col) as usize;
-            prev_dir = dir.opposite();
-            i += 1;
+    (s_row, s_col, start_dir)
+}
+
+fn part1(puzzle_input: &[&[Tile]], num_cols: usize) -> usize {
+    // first find the position of the S
+    let (s_row, s_col, start_dir) = find_s_and_start_dir(puzzle_input, num_cols);
+
+    let (mut row, mut col) = start_dir.get_successor(s_row, s_col);
+    let mut prev_dir = start_dir;
+    for i in 1.. {
+        if row == s_row && col == s_col {
+            return i / 2;
         }
 
-        return i / 2;
+        let dirs = puzzle_input[row][col].dirs().unwrap();
+
+        let dir = if dirs[0] == prev_dir.opposite() {
+            dirs[1]
+        } else {
+            dirs[0]
+        };
+
+        (row, col) = dir.get_successor(row, col);
+        prev_dir = dir;
     }
 
-    // there was no valid spot to start lol
-    panic!()
+    unreachable!()
+}
+
+// assume the flood fill never reachest the edges of the array (0 or num rows or num cols)
+fn flood_fill(
+    tile_info_arr: &mut [Vec<Option<TileInfo>>],
+    i: usize,
+    j: usize,
+    prev_dir: Option<Direction>,
+) {
+    if tile_info_arr[i][j].is_some() {
+        return;
+    }
+
+    tile_info_arr[i][j] = Some(TileInfo::Enclosed);
+
+    for dir in Direction::iter() {
+        if prev_dir.is_some() && dir == prev_dir.unwrap().opposite() {
+            continue;
+        }
+        let (new_i, new_j) = dir.get_successor(i, j);
+        flood_fill(tile_info_arr, new_i, new_j, Some(dir));
+    }
+}
+
+fn part2(puzzle_input: &[&[Tile]], num_cols: usize) -> usize {
+    let mut tile_info_arr = Vec::with_capacity(puzzle_input.len());
+    for _ in 0..puzzle_input.len() {
+        let mut v = Vec::with_capacity(num_cols);
+        for _ in 0..num_cols {
+            v.push(None);
+        }
+
+        tile_info_arr.push(v);
+    }
+
+    let (s_row, s_col, start_dir) = find_s_and_start_dir(puzzle_input, num_cols);
+    let (mut row, mut col) = start_dir.get_successor(s_row, s_col);
+    let mut prev_dir = start_dir;
+
+    // follow main loop and count lefts vs rights
+    let mut num_lefts = 0;
+    let mut num_rights = 0;
+    loop {
+        tile_info_arr[row][col] = Some(TileInfo::InLoop);
+
+        if row == s_row && col == s_col {
+            break;
+        }
+
+        let dirs = puzzle_input[row][col].dirs().unwrap();
+
+        let dir = if dirs[0] == prev_dir.opposite() {
+            dirs[1]
+        } else {
+            dirs[0]
+        };
+
+        match dir.get_turn_since_last(prev_dir) {
+            Turn::Right => num_rights += 1,
+            Turn::Left => num_lefts += 1,
+            _ => (),
+        }
+
+        (row, col) = dir.get_successor(row, col);
+        prev_dir = dir;
+    }
+
+    let inside_turn = if num_rights > num_lefts {
+        Turn::Right
+    } else {
+        Turn::Left
+    };
+
+    let (mut row, mut col) = start_dir.get_successor(s_row, s_col);
+    let mut prev_dir = start_dir;
+
+    // follow main loop again with same starts, but this time
+    // turn inside_turn every step and set it in the array
+    // tile_info_arr
+    loop {
+        let (in_row, in_col) = prev_dir.turn(inside_turn).get_successor(row, col);
+        if tile_info_arr[in_row][in_col].is_none() {
+            tile_info_arr[in_row][in_col] = Some(TileInfo::Enclosed);
+        }
+
+        let dirs = puzzle_input[row][col].dirs().unwrap();
+
+        let dir = if dirs[0] == prev_dir.opposite() {
+            dirs[1]
+        } else {
+            dirs[0]
+        };
+
+        let (in_row, in_col) = dir.turn(inside_turn).get_successor(row, col);
+        if tile_info_arr[in_row][in_col].is_none() {
+            tile_info_arr[in_row][in_col] = Some(TileInfo::Enclosed);
+        }
+
+        if row == s_row && col == s_col {
+            break;
+        }
+
+        (row, col) = dir.get_successor(row, col);
+        prev_dir = dir;
+    }
+
+    for i in 0..tile_info_arr.len() {
+        for j in 0..num_cols {
+            flood_fill(&mut tile_info_arr, i, j, None);
+        }
+    }
+
+    tile_info_arr
+        .iter()
+        .flat_map(|row| row.iter())
+        .filter(|cell| match cell {
+            Some(TileInfo::Enclosed) => true,
+            _ => false,
+        })
+        .count()
 }
 
 fn main() {
@@ -149,6 +281,7 @@ fn main() {
 
     let puzzle_input: Vec<&[Tile]>;
 
+    // assuming input is valid:
     unsafe {
         puzzle_input = file_contents_as_str
             .lines()
@@ -159,4 +292,5 @@ fn main() {
     let num_cols = puzzle_input[0].len();
 
     println!("{}", part1(&puzzle_input, num_cols));
+    println!("{}", part2(&puzzle_input, num_cols));
 }
