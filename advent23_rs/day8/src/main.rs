@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use num::integer::lcm;
 use regex::Regex;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -30,6 +31,7 @@ fn part1(instructions: &[Direction], graph: &Graph) -> usize {
     follow_directions(instructions, graph, "AAA", "ZZZ")
 }
 
+#[derive(Debug)]
 struct GhostPathInfo {
     time_steps_at_z: Vec<usize>,
     cycle_start_index: usize, // index of time_steps where the first Z appears in a cycle
@@ -49,10 +51,10 @@ fn follow_directions_part2(
     // state = (index of instructions)
     // this should find
     // find cycle and when it reaches cycle
-    let mut seen = HashMap::new();
-    let cycle_start_state;
-    let cycle_start_time_step;
-    let cycle_length;
+    let mut seen: HashMap<(usize, &str), usize> = HashMap::new();
+    // let cycle_start_state;
+    let mut cycle_start_time_step = 0;
+    let mut cycle_length = 0;
 
     let mut time_steps_at_z = Vec::new();
 
@@ -63,9 +65,9 @@ fn follow_directions_part2(
 
         // been on this instruction at this time before
         let state = (i % instructions.len(), current);
-        match seen.entry(&state) {
+        match seen.entry(state) {
             Entry::Occupied(e) => {
-                cycle_start_state = state;
+                // cycle_start_state = state;
                 cycle_start_time_step = *e.get();
                 cycle_length = i - cycle_start_time_step;
                 break;
@@ -94,14 +96,6 @@ fn follow_directions_part2(
     }
 }
 
-// TODO: i was too high
-// should take instructions for each 'A'
-// until finding cycle, noting the linear equations
-// for turns that 'A' into a 'Z'
-// where there a cycle => tells which indices of time
-// take 'A' to 'Z' => take LCM of power set of this and choose the min
-// power set in this is size 6^6=46656 so not that bad
-// power set through iteration and zips? zip crate? maybe
 fn part2(instructions: &[Direction], graph: &Graph) -> usize {
     let start_nodes = graph
         .keys()
@@ -113,6 +107,24 @@ fn part2(instructions: &[Direction], graph: &Graph) -> usize {
         .iter()
         .map(|start| follow_directions_part2(instructions, graph, start))
         .collect::<Vec<_>>();
+
+    println!("{:?}", ghost_path_infos);
+
+    // OKAY bruh they each only go to 1 Z repeatedly in the real data so as a
+    // shortcut we simply get the LCM of all the dists
+    // otherwise it would have been way harder mafs lol
+
+    // we have this shortcut b/c the printout basically before
+    // resorting to the cycles we have to reach all the cycles
+    // checking if all are on Z until time step maximum cycle start index
+
+    // then solve a real large system of linear equations lol
+    // up to (num As)**(num As) times (once for every possible appearance of Z for every A)
+    ghost_path_infos
+        .iter()
+        .map(|gpi| gpi.cycle_length)
+        .reduce(lcm)
+        .unwrap()
 }
 
 fn parse_input(puzzle_input: &str) -> (Vec<Direction>, Graph) {
