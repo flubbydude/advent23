@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
-use priority_queue::PriorityQueue;
 use regex::Regex;
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 #[derive(Clone, Copy)]
@@ -30,6 +30,70 @@ fn part1(instructions: &[Direction], graph: &Graph) -> usize {
     follow_directions(instructions, graph, "AAA", "ZZZ")
 }
 
+struct GhostPathInfo {
+    time_steps_at_z: Vec<usize>,
+    cycle_start_index: usize, // index of time_steps where the first Z appears in a cycle
+    cycle_length: usize,      // in terms of time steps.
+}
+
+// returns the vector of time steps of when you find a Z before the cycle
+// the index of z_indices where you get to the first Z on the cycle
+// and the cycle length
+fn follow_directions_part2(
+    instructions: &[Direction],
+    graph: &Graph,
+    start: &str,
+) -> GhostPathInfo {
+    let mut current = start;
+
+    // state = (index of instructions)
+    // this should find
+    // find cycle and when it reaches cycle
+    let mut seen = HashMap::new();
+    let cycle_start_state;
+    let cycle_start_time_step;
+    let cycle_length;
+
+    let mut time_steps_at_z = Vec::new();
+
+    for (i, &instruction) in instructions.iter().cycle().enumerate() {
+        if current.ends_with('Z') {
+            time_steps_at_z.push(i);
+        }
+
+        // been on this instruction at this time before
+        let state = (i % instructions.len(), current);
+        match seen.entry(&state) {
+            Entry::Occupied(e) => {
+                cycle_start_state = state;
+                cycle_start_time_step = *e.get();
+                cycle_length = i - cycle_start_time_step;
+                break;
+            }
+            Entry::Vacant(e) => {
+                e.insert(i);
+            }
+        }
+        current = graph[current][instruction as usize];
+    }
+
+    // the first index where the cycle starts is always after the
+    let cycle_start_index = time_steps_at_z
+        .binary_search(&cycle_start_time_step)
+        .unwrap_or_else(|i| i);
+
+    // yuh
+    if cycle_start_index == time_steps_at_z.len() {
+        eprintln!("No Zs in a cycle, that's odd lol");
+    }
+
+    GhostPathInfo {
+        time_steps_at_z,
+        cycle_start_index,
+        cycle_length,
+    }
+}
+
 // TODO: i was too high
 // should take instructions for each 'A'
 // until finding cycle, noting the linear equations
@@ -43,6 +107,11 @@ fn part2(instructions: &[Direction], graph: &Graph) -> usize {
         .keys()
         .filter(|&node| node.ends_with('A'))
         .cloned()
+        .collect::<Vec<_>>();
+
+    let ghost_path_infos = start_nodes
+        .iter()
+        .map(|start| follow_directions_part2(instructions, graph, start))
         .collect::<Vec<_>>();
 }
 
