@@ -145,6 +145,7 @@ struct PipeIterator<'a> {
     puzzle_input: &'a [&'a [Tile]],
     num_cols: usize,
     state: PipeState,
+    done: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -163,6 +164,7 @@ fn get_pipe_iterator<'a>(
         puzzle_input,
         num_cols,
         state: initial_state,
+        done: false,
     }
 }
 
@@ -170,16 +172,23 @@ impl Iterator for PipeIterator<'_> {
     type Item = PipeState;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
         let state = &mut self.state;
 
         if self.puzzle_input[state.row][state.col] == Tile::Start {
-            return None;
+            self.done = true;
+            return Some(*state);
         }
 
         // get next direction
         let [d1, d2] = self.puzzle_input[state.row][state.col].dirs().unwrap();
 
         state.dir = if d1 == state.dir.opposite() { d2 } else { d1 };
+
+        let result = *state;
 
         let (next_row, next_col) = state.dir.get_successor(state.row, state.col);
 
@@ -191,7 +200,7 @@ impl Iterator for PipeIterator<'_> {
         assert!(state.row < self.puzzle_input.len());
         assert!(state.col < self.num_cols);
 
-        Some(*state)
+        Some(result)
     }
 }
 
@@ -200,7 +209,7 @@ fn part1(puzzle_input: &[&[Tile]], num_cols: usize) -> usize {
     // go 1 step in a direction
     // follow the pipe until reaching S
     // count the number of time taken to reach S
-    // divide by 2, + 1 for prob cuz 0 is double counted
+    // divide by 2
     let num_steps = get_pipe_iterator(
         puzzle_input,
         num_cols,
@@ -208,7 +217,7 @@ fn part1(puzzle_input: &[&[Tile]], num_cols: usize) -> usize {
     )
     .count();
 
-    (num_steps + 1) / 2
+    num_steps / 2
 }
 
 fn flood_fill(tile_info_arr: &mut [Vec<Option<TileInfo>>], num_cols: usize, i: usize, j: usize) {
@@ -271,8 +280,6 @@ fn part2(puzzle_input: &[&[Tile]], num_cols: usize) -> usize {
     } else {
         Turn::Left
     };
-
-    println!("num rights = {num_rights}, num lefts = {num_lefts} => {inside_turn:?} is inside");
 
     // follow main loop again with same starts, but this time
     // turn inside_turn every step and set it in the array
