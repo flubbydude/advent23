@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::{self, Write},
-    mem,
-};
+use std::mem;
 
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
@@ -62,8 +58,10 @@ impl Direction {
     }
 }
 
+// since i never construct the tile variants but start
+#[allow(dead_code)]
 #[repr(u8)]
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 enum Tile {
     NorthSouth = b'|',
     EastWest = b'-',
@@ -125,9 +123,9 @@ fn get_intitial_pipe_state(puzzle_input: &[&[Tile]], num_cols: usize) -> PipeSta
             let start_row = start_row as usize;
             let start_col = start_col as usize;
 
-            if (start_row < puzzle_input.len()
+            if start_row < puzzle_input.len()
                 && start_col < num_cols
-                && puzzle_input[start_row][start_col].connects_to(dir.opposite()))
+                && puzzle_input[start_row][start_col].connects_to(dir.opposite())
             {
                 Some(PipeState {
                     row: start_row,
@@ -281,45 +279,32 @@ fn part2(puzzle_input: &[&[Tile]], num_cols: usize) -> usize {
         Turn::Left
     };
 
+    let mut check_next_to_inside = |row, col, dir: Direction| {
+        let (irow, icol) = dir.turn(inside_turn).get_successor(row, col);
+
+        assert!(irow >= 0 && icol >= 0);
+        let irow = irow as usize;
+        let icol = icol as usize;
+        assert!(irow < puzzle_input.len() && icol < num_cols);
+
+        if tile_info_arr[irow][icol].is_none() {
+            tile_info_arr[irow][icol] = Some(TileInfo::Enclosed);
+        }
+    };
+
     // follow main loop again with same starts, but this time
     // turn inside_turn every step and set it in the array
     // tile_info_arr
     prev_dir = initial_state.dir;
     for pipe_state in get_pipe_iterator(puzzle_input, num_cols, initial_state) {
         // (irow, icol) is on the inside of the loop if not on the loop
-        let (irow, icol) = prev_dir
-            .turn(inside_turn)
-            .get_successor(pipe_state.row, pipe_state.col);
-
-        assert!(irow >= 0 && icol >= 0);
-        let irow = irow as usize;
-        let icol = icol as usize;
-        assert!(irow < puzzle_input.len() && icol < num_cols);
-
-        if tile_info_arr[irow][icol].is_none() {
-            tile_info_arr[irow][icol] = Some(TileInfo::Enclosed);
-        }
+        check_next_to_inside(pipe_state.row, pipe_state.col, prev_dir);
 
         prev_dir = pipe_state.dir;
 
         // go againe
-        let (irow, icol) = prev_dir
-            .turn(inside_turn)
-            .get_successor(pipe_state.row, pipe_state.col);
-
-        assert!(irow >= 0 && icol >= 0);
-        let irow = irow as usize;
-        let icol = icol as usize;
-        assert!(irow < puzzle_input.len() && icol < num_cols);
-
-        if tile_info_arr[irow][icol].is_none() {
-            tile_info_arr[irow][icol] = Some(TileInfo::Enclosed);
-        }
+        check_next_to_inside(pipe_state.row, pipe_state.col, pipe_state.dir);
     }
-
-    print_tile_info_and_main_loop("main_loop.txt", puzzle_input, &tile_info_arr, true).unwrap();
-
-    print_tile_info_and_main_loop("out1.txt", puzzle_input, &tile_info_arr, false).unwrap();
 
     for i in 0..tile_info_arr.len() {
         for j in 0..num_cols {
@@ -329,41 +314,11 @@ fn part2(puzzle_input: &[&[Tile]], num_cols: usize) -> usize {
         }
     }
 
-    print_tile_info_and_main_loop("out2.txt", puzzle_input, &tile_info_arr, false).unwrap();
-
     tile_info_arr
         .iter()
         .flat_map(|row| row.iter())
         .filter(|cell| matches!(cell, Some(TileInfo::Enclosed)))
         .count()
-}
-
-fn print_tile_info_and_main_loop(
-    output_filename: &str,
-    puzzle_input: &[&[Tile]],
-    tile_info_arr: &[Vec<Option<TileInfo>>],
-    print_main_loop_only: bool,
-) -> Result<(), io::Error> {
-    let mut file = File::create(output_filename)?;
-    for (tile_row, info_row) in puzzle_input.iter().zip(tile_info_arr.iter()) {
-        for (tile, row) in tile_row.iter().zip(info_row.iter()) {
-            let c_to_write = match row {
-                Some(TileInfo::InLoop) => *tile as u8,
-                Some(TileInfo::Enclosed) => {
-                    if print_main_loop_only {
-                        b'.'
-                    } else {
-                        b'I'
-                    }
-                }
-                None => b'.',
-            };
-            write!(file, "{}", c_to_write as char)?;
-        }
-        writeln!(file)?;
-    }
-
-    Ok(())
 }
 
 fn main() {
