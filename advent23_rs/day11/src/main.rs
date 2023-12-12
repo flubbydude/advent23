@@ -33,18 +33,18 @@ fn find_sum_of_dists(puzzle_input: &[&[u8]], expansion_factor: usize) -> usize {
     }
 
     let mut result = 0;
-    for (i, g1) in galaxies.iter().enumerate() {
-        for g2 in galaxies[i + 1..].iter() {
-            result += if g1.0 > g2.0 {
-                g1.0 - g2.0
+    for (i, Galaxy(row1, col1)) in galaxies.iter().enumerate() {
+        for Galaxy(row2, col2) in galaxies[i + 1..].iter() {
+            result += if row1 > row2 {
+                row1 - row2
             } else {
-                g2.0 - g1.0
+                row2 - row1
             };
 
-            result += if g1.1 > g2.1 {
-                g1.1 - g2.1
+            result += if col1 > col2 {
+                col1 - col2
             } else {
-                g2.1 - g1.1
+                col2 - col1
             };
         }
     }
