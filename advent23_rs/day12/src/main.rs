@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::iter::repeat;
 
 #[derive(Clone)]
 struct RecordRow {
-    damaged_record: Vec<u8>,
-    num_contiguous: Vec<u32>,
+    damaged_record: Box<[u8]>,
+    num_contiguous: Box<[usize]>,
 }
 
 impl From<&str> for RecordRow {
@@ -15,10 +15,13 @@ impl From<&str> for RecordRow {
         let mut damaged_record = Vec::with_capacity(damaged_record_bytes.len());
         damaged_record.extend(damaged_record_bytes);
 
+        let damaged_record = damaged_record.into_boxed_slice();
+
         let num_contiguous = num_contiguous_str
             .split(',')
             .map(|s| s.parse().unwrap())
-            .collect();
+            .collect::<Vec<usize>>()
+            .into_boxed_slice();
 
         RecordRow {
             damaged_record,
@@ -32,7 +35,7 @@ impl RecordRow {
         &self,
         record_index: usize,
         contiguous_index: usize,
-        prev_damaged: u32,
+        prev_damaged: usize,
     ) -> usize {
         if record_index == self.damaged_record.len() {
             let is_valid = if contiguous_index == self.num_contiguous.len() {
@@ -85,109 +88,117 @@ impl RecordRow {
     }
 
     fn unfolded(&self) -> Self {
-        let mut result = self.clone();
-        result
-            .damaged_record
-            .reserve_exact(result.damaged_record.len() * 4 + 4);
-        result
-            .num_contiguous
-            .reserve_exact(result.num_contiguous.len() * 4);
+        let mut damaged_record = Vec::with_capacity(self.damaged_record.len() * 5 + 4);
+        let mut num_contiguous = Vec::with_capacity(self.num_contiguous.len() * 5);
 
-        for _ in 0..4 {
-            result.damaged_record.push(b'?');
-            result.damaged_record.extend(&self.damaged_record);
-            result.num_contiguous.extend(&self.num_contiguous);
+        for i in 0..5 {
+            if i != 0 {
+                damaged_record.push(b'?');
+            }
+            damaged_record.extend_from_slice(&self.damaged_record);
+            num_contiguous.extend_from_slice(&self.num_contiguous);
         }
 
-        result
+        RecordRow {
+            damaged_record: damaged_record.into_boxed_slice(),
+            num_contiguous: num_contiguous.into_boxed_slice(),
+        }
     }
 
     fn num_ways(&self) -> usize {
-        let mut num_contiguous_end_damaged: HashMap<Vec<u32>, usize> = HashMap::new();
-        let mut num_contiguous_end_operational: HashMap<Vec<u32>, usize> =
-            HashMap::from([(vec![], 1)]);
+        let num_damaged: usize = self.num_contiguous.iter().sum();
+        let mut num_contiguous_index_bins = Vec::with_capacity(num_damaged);
+        for (i, &count) in self.num_contiguous.iter().enumerate() {
+            num_contiguous_index_bins.extend(repeat(i).take(count));
+        }
 
-        let handle_damaged =
-            |prev_damaged: HashMap<Vec<u32>, usize>, prev_operational: HashMap<Vec<u32>, usize>| {
-                let mut result = prev_damaged
-                    .into_iter()
-                    .filter_map(|(mut comb_end_damaged, num_ways)| {
-                        // should always be true that this vec is not empty!
-                        let i = comb_end_damaged.len() - 1;
-                        let last_elem = comb_end_damaged.last_mut().unwrap();
+        let num_contiguous_index_bins = num_contiguous_index_bins;
 
-                        *last_elem += 1;
+        // println!(
+        //     "{:?} => {:?}",
+        //     self.num_contiguous, num_contiguous_index_bins
+        // );
 
-                        // new combinations is too big!
-                        if *last_elem > self.num_contiguous[i] {
-                            None
-                        } else {
-                            Some((comb_end_damaged, num_ways))
-                        }
-                    })
-                    .collect::<HashMap<_, _>>();
+        let mut num_ways_end_damaged = vec![0; num_damaged + 1];
+        let mut num_ways_end_operational = vec![0; num_damaged + 1];
 
-                for (mut comb_end_operational, num_ways) in prev_operational {
-                    // skip this element; can't add another contiguous to it bc it would be too many separate groups.
-                    if comb_end_operational.len() == self.num_contiguous.len() {
-                        continue;
-                    }
+        num_ways_end_operational[0] = 1;
 
-                    comb_end_operational.push(1);
+        // num_ways_end_damaged[i] is the number of ways to have
+        // i damaged elems at the current point while staying
+        // within the criteria (num_contiguous)
 
-                    result
-                        .entry(comb_end_operational)
-                        .and_modify(|val| *val += num_ways)
-                        .or_insert(num_ways);
-                }
-
-                result
-            };
+        // ".?##.?????#?#?#??## 3,5,1"
 
         for c in self.damaged_record.iter() {
             match c {
                 b'#' => {
-                    num_contiguous_end_damaged =
-                        handle_damaged(num_contiguous_end_damaged, num_contiguous_end_operational);
+                    // bruh i was missing this line for so long:
+                    num_ways_end_operational[num_damaged] = 0;
+                    for i in (0..num_damaged).rev() {
+                        num_ways_end_damaged[i + 1] = num_ways_end_operational[i];
+                        num_ways_end_operational[i] = 0;
 
-                    num_contiguous_end_operational = HashMap::new();
+                        // if in the same bin, meaning that they would be contiguous
+                        // then add to the count
+                        // otherwise don't!
+                        if i > 0 && num_contiguous_index_bins[i] == num_contiguous_index_bins[i - 1]
+                        {
+                            num_ways_end_damaged[i + 1] += num_ways_end_damaged[i];
+                        }
+                    }
                 }
                 b'.' => {
-                    for (comb_end_damaged, num_ways) in num_contiguous_end_damaged {
-                        num_contiguous_end_operational
-                            .entry(comb_end_damaged)
-                            .and_modify(|val| *val += num_ways)
-                            .or_insert(num_ways);
+                    for i in 1..=num_damaged {
+                        // if at the end of a bin
+                        // as in you are at the end of a contiguous group of damaged things
+                        if i == num_damaged
+                            || (num_contiguous_index_bins[i] != num_contiguous_index_bins[i - 1])
+                        {
+                            num_ways_end_operational[i] += num_ways_end_damaged[i];
+                        }
+                        num_ways_end_damaged[i] = 0;
                     }
-
-                    num_contiguous_end_damaged = HashMap::new();
                 }
                 b'?' => {
-                    let mut new_operational = num_contiguous_end_operational.clone();
+                    let mut new_damaged = Vec::with_capacity(num_damaged + 1);
+                    new_damaged.push(0);
+                    new_damaged.extend(&num_ways_end_operational[..num_damaged]);
 
-                    for (comb_end_damaged, &num_ways) in num_contiguous_end_damaged.iter() {
-                        if let Some(val) = new_operational.get_mut(comb_end_damaged) {
-                            *val += num_ways;
-                        } else {
-                            new_operational.insert(comb_end_damaged.clone(), num_ways);
+                    for i in 1..=num_damaged {
+                        // if at the end of a bin
+                        // as in you are at the end of a contiguous group of damaged things
+                        if i == num_damaged
+                            || (num_contiguous_index_bins[i] != num_contiguous_index_bins[i - 1])
+                        {
+                            num_ways_end_operational[i] += num_ways_end_damaged[i];
                         }
                     }
 
-                    num_contiguous_end_damaged =
-                        handle_damaged(num_contiguous_end_damaged, num_contiguous_end_operational);
-
-                    num_contiguous_end_operational = new_operational;
+                    for i in (0..num_damaged).rev() {
+                        // if in the same bin, meaning that they would be contiguous
+                        // then add to the count
+                        // otherwise don't!
+                        if i > 0 && num_contiguous_index_bins[i] == num_contiguous_index_bins[i - 1]
+                        {
+                            new_damaged[i + 1] += num_ways_end_damaged[i];
+                        }
+                    }
+                    num_ways_end_damaged = new_damaged;
                 }
                 _ => panic!(),
             }
         }
 
-        num_contiguous_end_damaged
-            .get(&self.num_contiguous)
-            .unwrap_or(&0)
-            + num_contiguous_end_operational
-                .get(&self.num_contiguous)
-                .unwrap_or(&0)
+        // let rv = num_ways_end_damaged[num_damaged] + num_ways_end_operational[num_damaged];
+        // println!(
+        //     "num ways for {} {:?} = {rv:?}",
+        //     std::str::from_utf8(&self.damaged_record).unwrap(),
+        //     self.num_contiguous,
+        // );
+        // rv
+
+        num_ways_end_damaged[num_damaged] + num_ways_end_operational[num_damaged]
     }
 }
 
@@ -235,5 +246,12 @@ mod tests {
     #[test]
     fn test_part_2() {
         assert_eq!(part2(&parse_input(TEST_INPUT)), 525152);
+    }
+
+    #[test]
+    fn compare_num_ways() {
+        let rr = RecordRow::from(".?##.?????#?#?#??## 3,5,1");
+
+        assert_eq!(rr.num_ways(), rr._num_ways_recursive())
     }
 }
