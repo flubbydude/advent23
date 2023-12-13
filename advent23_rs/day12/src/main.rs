@@ -2,12 +2,12 @@ use std::{collections::HashMap, iter::repeat};
 
 struct RecordRow {
     damaged_record: Box<[u8]>,
-    num_contiguous: Box<[usize]>,
+    pattern: Box<[usize]>,
 }
 
 impl From<&str> for RecordRow {
     fn from(line: &str) -> Self {
-        let (damaged_record_str, num_contiguous_str) = line.split_once(' ').unwrap();
+        let (damaged_record_str, pattern_str) = line.split_once(' ').unwrap();
 
         let damaged_record_bytes = damaged_record_str.as_bytes();
 
@@ -16,7 +16,7 @@ impl From<&str> for RecordRow {
 
         let damaged_record = damaged_record.into_boxed_slice();
 
-        let num_contiguous = num_contiguous_str
+        let pattern = pattern_str
             .split(',')
             .map(|s| s.parse().unwrap())
             .collect::<Vec<usize>>()
@@ -24,7 +24,7 @@ impl From<&str> for RecordRow {
 
         RecordRow {
             damaged_record,
-            num_contiguous,
+            pattern,
         }
     }
 }
@@ -33,44 +33,39 @@ impl RecordRow {
     fn _num_ways_recursive_helper(
         &self,
         record_index: usize,
-        contiguous_index: usize,
+        pattern_index: usize,
         prev_damaged: usize,
     ) -> usize {
         if record_index == self.damaged_record.len() {
-            let is_valid = if contiguous_index == self.num_contiguous.len() {
+            let is_valid = if pattern_index == self.pattern.len() {
                 prev_damaged == 0
             } else {
-                contiguous_index + 1 == self.num_contiguous.len()
-                    && self.num_contiguous[contiguous_index] == prev_damaged
+                pattern_index + 1 == self.pattern.len()
+                    && self.pattern[pattern_index] == prev_damaged
             };
 
             return is_valid as usize;
         }
 
         let handle_damaged = || {
-            if contiguous_index >= self.num_contiguous.len()
-                || prev_damaged + 1 > self.num_contiguous[contiguous_index]
+            if pattern_index >= self.pattern.len() || prev_damaged + 1 > self.pattern[pattern_index]
             {
                 0
             } else {
-                self._num_ways_recursive_helper(
-                    record_index + 1,
-                    contiguous_index,
-                    prev_damaged + 1,
-                )
+                self._num_ways_recursive_helper(record_index + 1, pattern_index, prev_damaged + 1)
             }
         };
 
         let handle_operational = || {
             if prev_damaged == 0 {
-                self._num_ways_recursive_helper(record_index + 1, contiguous_index, 0)
-            } else if contiguous_index == self.num_contiguous.len()
-                || self.num_contiguous[contiguous_index] != prev_damaged
+                self._num_ways_recursive_helper(record_index + 1, pattern_index, 0)
+            } else if pattern_index == self.pattern.len()
+                || self.pattern[pattern_index] != prev_damaged
             {
                 0
             } else {
-                // move 1 forward in the contiguous index
-                self._num_ways_recursive_helper(record_index + 1, contiguous_index + 1, 0)
+                // move 1 forward in the pattern index
+                self._num_ways_recursive_helper(record_index + 1, pattern_index + 1, 0)
             }
         };
 
@@ -89,34 +84,33 @@ impl RecordRow {
     fn _num_ways_memoized_helper(
         &self,
         record_index: usize,
-        contiguous_index: usize,
+        pattern_index: usize,
         prev_damaged: usize,
         memoization: &mut HashMap<(usize, usize, usize), usize>,
     ) -> usize {
-        if let Some(&num_ways) = memoization.get(&(record_index, contiguous_index, prev_damaged)) {
+        if let Some(&num_ways) = memoization.get(&(record_index, pattern_index, prev_damaged)) {
             return num_ways;
         }
 
         if record_index == self.damaged_record.len() {
-            let is_valid = if contiguous_index == self.num_contiguous.len() {
+            let is_valid = if pattern_index == self.pattern.len() {
                 prev_damaged == 0
             } else {
-                contiguous_index + 1 == self.num_contiguous.len()
-                    && self.num_contiguous[contiguous_index] == prev_damaged
+                pattern_index + 1 == self.pattern.len()
+                    && self.pattern[pattern_index] == prev_damaged
             };
 
             return is_valid as usize;
         }
 
         let handle_damaged = |memo| {
-            if contiguous_index >= self.num_contiguous.len()
-                || prev_damaged + 1 > self.num_contiguous[contiguous_index]
+            if pattern_index >= self.pattern.len() || prev_damaged + 1 > self.pattern[pattern_index]
             {
                 0
             } else {
                 self._num_ways_memoized_helper(
                     record_index + 1,
-                    contiguous_index,
+                    pattern_index,
                     prev_damaged + 1,
                     memo,
                 )
@@ -125,14 +119,14 @@ impl RecordRow {
 
         let handle_operational = |memo| {
             if prev_damaged == 0 {
-                self._num_ways_memoized_helper(record_index + 1, contiguous_index, 0, memo)
-            } else if contiguous_index == self.num_contiguous.len()
-                || self.num_contiguous[contiguous_index] != prev_damaged
+                self._num_ways_memoized_helper(record_index + 1, pattern_index, 0, memo)
+            } else if pattern_index == self.pattern.len()
+                || self.pattern[pattern_index] != prev_damaged
             {
                 0
             } else {
-                // move 1 forward in the contiguous index
-                self._num_ways_memoized_helper(record_index + 1, contiguous_index + 1, 0, memo)
+                // move 1 forward in the pattern index
+                self._num_ways_memoized_helper(record_index + 1, pattern_index + 1, 0, memo)
             }
         };
 
@@ -143,7 +137,7 @@ impl RecordRow {
             _ => panic!("Input contains an unexpected character."),
         };
 
-        memoization.insert((record_index, contiguous_index, prev_damaged), rv);
+        memoization.insert((record_index, pattern_index, prev_damaged), rv);
         rv
     }
 
@@ -153,30 +147,30 @@ impl RecordRow {
 
     fn unfolded(&self) -> Self {
         let mut damaged_record = Vec::with_capacity(self.damaged_record.len() * 5 + 4);
-        let mut num_contiguous = Vec::with_capacity(self.num_contiguous.len() * 5);
+        let mut pattern = Vec::with_capacity(self.pattern.len() * 5);
 
         for i in 0..5 {
             if i != 0 {
                 damaged_record.push(b'?');
             }
             damaged_record.extend_from_slice(&self.damaged_record);
-            num_contiguous.extend_from_slice(&self.num_contiguous);
+            pattern.extend_from_slice(&self.pattern);
         }
 
         RecordRow {
             damaged_record: damaged_record.into_boxed_slice(),
-            num_contiguous: num_contiguous.into_boxed_slice(),
+            pattern: pattern.into_boxed_slice(),
         }
     }
 
     fn num_ways(&self) -> usize {
-        let num_damaged: usize = self.num_contiguous.iter().sum();
-        let mut num_contiguous_index_bins = Vec::with_capacity(num_damaged);
-        for (i, &count) in self.num_contiguous.iter().enumerate() {
-            num_contiguous_index_bins.extend(repeat(i).take(count));
+        let num_damaged: usize = self.pattern.iter().sum();
+        let mut pattern_index_bins = Vec::with_capacity(num_damaged);
+        for (i, &count) in self.pattern.iter().enumerate() {
+            pattern_index_bins.extend(repeat(i).take(count));
         }
 
-        let num_contiguous_index_bins = num_contiguous_index_bins;
+        let pattern_index_bins = pattern_index_bins;
 
         let mut num_ways_end_damaged = vec![0; num_damaged + 1].into_boxed_slice();
         let mut num_ways_end_operational = vec![0; num_damaged + 1].into_boxed_slice();
@@ -185,7 +179,7 @@ impl RecordRow {
 
         // num_ways_end_damaged[i] is the number of ways to have
         // i damaged elems at the current point while staying
-        // within the criteria (num_contiguous)
+        // within the criteria (pattern)
         for c in self.damaged_record.iter() {
             match c {
                 b'#' => {
@@ -199,8 +193,7 @@ impl RecordRow {
                         // if in the same bin, meaning that they would be contiguous
                         // then add to the count
                         // otherwise don't!
-                        if i > 0 && num_contiguous_index_bins[i] == num_contiguous_index_bins[i - 1]
-                        {
+                        if i > 0 && pattern_index_bins[i] == pattern_index_bins[i - 1] {
                             num_ways_end_damaged[i + 1] += num_ways_end_damaged[i];
                         }
                     }
@@ -209,8 +202,7 @@ impl RecordRow {
                     for i in 1..=num_damaged {
                         // if at the end of a bin
                         // as in you are at the end of a contiguous group of damaged things
-                        if i == num_damaged
-                            || (num_contiguous_index_bins[i] != num_contiguous_index_bins[i - 1])
+                        if i == num_damaged || (pattern_index_bins[i] != pattern_index_bins[i - 1])
                         {
                             num_ways_end_operational[i] += num_ways_end_damaged[i];
                         }
@@ -227,8 +219,7 @@ impl RecordRow {
                     for i in 1..=num_damaged {
                         // if at the end of a bin
                         // as in you are at the end of a contiguous group of damaged things
-                        if i == num_damaged
-                            || (num_contiguous_index_bins[i] != num_contiguous_index_bins[i - 1])
+                        if i == num_damaged || (pattern_index_bins[i] != pattern_index_bins[i - 1])
                         {
                             num_ways_end_operational[i] += num_ways_end_damaged[i];
                         }
@@ -238,8 +229,7 @@ impl RecordRow {
                         // if in the same bin, meaning that they would be contiguous
                         // then add to the count
                         // otherwise don't!
-                        if i > 0 && num_contiguous_index_bins[i] == num_contiguous_index_bins[i - 1]
-                        {
+                        if i > 0 && pattern_index_bins[i] == pattern_index_bins[i - 1] {
                             new_damaged[i + 1] += num_ways_end_damaged[i];
                         }
                     }
