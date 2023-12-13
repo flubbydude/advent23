@@ -234,7 +234,7 @@ impl RecordRow {
                         }
                     }
 
-                    for i in (0..num_damaged).rev() {
+                    for i in 0..num_damaged {
                         // if in the same bin, meaning that they would be contiguous
                         // then add to the count
                         // otherwise don't!
