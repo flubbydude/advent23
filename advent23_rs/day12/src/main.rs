@@ -1,6 +1,5 @@
-use std::iter::repeat;
+use std::{collections::HashMap, iter::repeat};
 
-#[derive(Clone)]
 struct RecordRow {
     damaged_record: Box<[u8]>,
     num_contiguous: Box<[usize]>,
@@ -87,6 +86,71 @@ impl RecordRow {
         self._num_ways_recursive_helper(0, 0, 0)
     }
 
+    fn _num_ways_memoized_helper(
+        &self,
+        record_index: usize,
+        contiguous_index: usize,
+        prev_damaged: usize,
+        memoization: &mut HashMap<(usize, usize, usize), usize>,
+    ) -> usize {
+        if let Some(&num_ways) = memoization.get(&(record_index, contiguous_index, prev_damaged)) {
+            return num_ways;
+        }
+
+        if record_index == self.damaged_record.len() {
+            let is_valid = if contiguous_index == self.num_contiguous.len() {
+                prev_damaged == 0
+            } else {
+                contiguous_index + 1 == self.num_contiguous.len()
+                    && self.num_contiguous[contiguous_index] == prev_damaged
+            };
+
+            return is_valid as usize;
+        }
+
+        let handle_damaged = |memo| {
+            if contiguous_index >= self.num_contiguous.len()
+                || prev_damaged + 1 > self.num_contiguous[contiguous_index]
+            {
+                0
+            } else {
+                self._num_ways_memoized_helper(
+                    record_index + 1,
+                    contiguous_index,
+                    prev_damaged + 1,
+                    memo,
+                )
+            }
+        };
+
+        let handle_operational = |memo| {
+            if prev_damaged == 0 {
+                self._num_ways_memoized_helper(record_index + 1, contiguous_index, 0, memo)
+            } else if contiguous_index == self.num_contiguous.len()
+                || self.num_contiguous[contiguous_index] != prev_damaged
+            {
+                0
+            } else {
+                // move 1 forward in the contiguous index
+                self._num_ways_memoized_helper(record_index + 1, contiguous_index + 1, 0, memo)
+            }
+        };
+
+        let rv = match self.damaged_record[record_index] {
+            b'#' => handle_damaged(memoization),
+            b'.' => handle_operational(memoization),
+            b'?' => handle_damaged(memoization) + handle_operational(memoization),
+            _ => panic!("Input contains an unexpected character."),
+        };
+
+        memoization.insert((record_index, contiguous_index, prev_damaged), rv);
+        rv
+    }
+
+    fn _num_ways_memoized(&self) -> usize {
+        self._num_ways_memoized_helper(0, 0, 0, &mut HashMap::new())
+    }
+
     fn unfolded(&self) -> Self {
         let mut damaged_record = Vec::with_capacity(self.damaged_record.len() * 5 + 4);
         let mut num_contiguous = Vec::with_capacity(self.num_contiguous.len() * 5);
@@ -114,27 +178,20 @@ impl RecordRow {
 
         let num_contiguous_index_bins = num_contiguous_index_bins;
 
-        // println!(
-        //     "{:?} => {:?}",
-        //     self.num_contiguous, num_contiguous_index_bins
-        // );
-
-        let mut num_ways_end_damaged = vec![0; num_damaged + 1];
-        let mut num_ways_end_operational = vec![0; num_damaged + 1];
+        let mut num_ways_end_damaged = vec![0; num_damaged + 1].into_boxed_slice();
+        let mut num_ways_end_operational = vec![0; num_damaged + 1].into_boxed_slice();
 
         num_ways_end_operational[0] = 1;
 
         // num_ways_end_damaged[i] is the number of ways to have
         // i damaged elems at the current point while staying
         // within the criteria (num_contiguous)
-
-        // ".?##.?????#?#?#??## 3,5,1"
-
         for c in self.damaged_record.iter() {
             match c {
                 b'#' => {
-                    // bruh i was missing this line for so long:
+                    // bruh i was missing this line for so long, oopsuh:
                     num_ways_end_operational[num_damaged] = 0;
+
                     for i in (0..num_damaged).rev() {
                         num_ways_end_damaged[i + 1] = num_ways_end_operational[i];
                         num_ways_end_operational[i] = 0;
@@ -165,6 +222,8 @@ impl RecordRow {
                     new_damaged.push(0);
                     new_damaged.extend(&num_ways_end_operational[..num_damaged]);
 
+                    let mut new_damaged = new_damaged.into_boxed_slice();
+
                     for i in 1..=num_damaged {
                         // if at the end of a bin
                         // as in you are at the end of a contiguous group of damaged things
@@ -189,14 +248,6 @@ impl RecordRow {
                 _ => panic!(),
             }
         }
-
-        // let rv = num_ways_end_damaged[num_damaged] + num_ways_end_operational[num_damaged];
-        // println!(
-        //     "num ways for {} {:?} = {rv:?}",
-        //     std::str::from_utf8(&self.damaged_record).unwrap(),
-        //     self.num_contiguous,
-        // );
-        // rv
 
         num_ways_end_damaged[num_damaged] + num_ways_end_operational[num_damaged]
     }
@@ -246,12 +297,5 @@ mod tests {
     #[test]
     fn test_part_2() {
         assert_eq!(part2(&parse_input(TEST_INPUT)), 525152);
-    }
-
-    #[test]
-    fn compare_num_ways() {
-        let rr = RecordRow::from(".?##.?????#?#?#??## 3,5,1");
-
-        assert_eq!(rr.num_ways(), rr._num_ways_recursive())
     }
 }
