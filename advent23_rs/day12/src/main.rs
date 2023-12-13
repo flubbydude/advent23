@@ -170,7 +170,7 @@ impl RecordRow {
             pattern_index_bins.extend(repeat(i).take(count));
         }
 
-        let pattern_index_bins = pattern_index_bins;
+        let pattern_index_bins = pattern_index_bins.into_boxed_slice();
 
         let mut num_ways_end_damaged = vec![0; num_damaged + 1].into_boxed_slice();
         let mut num_ways_end_operational = vec![0; num_damaged + 1].into_boxed_slice();
