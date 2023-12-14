@@ -6,8 +6,8 @@ use array2d::Array2D;
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
 
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
+use strum::{EnumCount, IntoEnumIterator};
+use strum_macros::{EnumCount, EnumIter};
 
 #[derive(Debug, FromPrimitive, Clone, Hash, PartialEq, Eq)]
 #[repr(u8)]
@@ -17,7 +17,7 @@ enum Cell {
     Empty = b'.',
 }
 
-#[derive(Debug, EnumIter, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, EnumIter, EnumCount, Hash, PartialEq, Eq, Clone, Copy)]
 enum Direction {
     North,
     West,
@@ -171,7 +171,7 @@ fn part1(mut platform: Platform) -> usize {
 
 fn part2(mut platform: Platform) -> usize {
     const NUM_CYCLES: usize = 1000000000;
-    const CYCLE_LENGTH: usize = 4;
+    const CYCLE_LENGTH: usize = Direction::COUNT;
     const NUM_TILTS: usize = NUM_CYCLES * CYCLE_LENGTH;
 
     let mut prev_states = HashMap::new();
