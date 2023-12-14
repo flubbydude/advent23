@@ -172,30 +172,19 @@ impl Pattern {
         Array2D::from_rows(rows).map(|array| Pattern(array))
     }
 
-    fn column_len(&self) -> usize {
-        self.0.column_len()
-    }
-
-    fn row_len(&self) -> usize {
-        self.0.row_len()
-    }
-
-    fn switch_tile_at_index(&mut self, i: usize, j: usize) {
-        self.0[(i, j)].switch_tile()
-    }
-
     fn get_smudged_score(&self) -> Result<usize> {
         let prev_rl = self.get_reflection_line().unwrap();
         let mut pattern_cpy = self.clone();
-        for i in 0..pattern_cpy.column_len() {
-            for j in 0..pattern_cpy.row_len() {
-                pattern_cpy.switch_tile_at_index(i, j);
+        for i in 0..pattern_cpy.0.column_len() {
+            for j in 0..pattern_cpy.0.row_len() {
+                pattern_cpy.0[(i, j)].switch_tile();
 
                 if let Some(rl) = pattern_cpy.get_new_reflection_line(&prev_rl) {
                     // assert_ne!(rl, prev_rl);
                     return Ok(rl.get_score());
                 }
-                pattern_cpy.switch_tile_at_index(i, j);
+
+                pattern_cpy.0[(i, j)].switch_tile();
             }
         }
 
