@@ -212,7 +212,7 @@ fn main() -> Result<()> {
 
     let platform: Platform = file_contents_str
         .try_into()
-        .context("Unable to parse platform from file \"input.txt\"")?;
+        .context("Unable to parse Platform from file \"input.txt\"")?;
 
     println!("{}", part1(platform.clone()));
     println!("{}", part2(platform));
