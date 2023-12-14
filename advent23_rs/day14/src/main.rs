@@ -186,10 +186,10 @@ fn part2(mut platform: Platform) -> usize {
             remaining_tilts = Some(val - 1);
         } else {
             let key = (platform.clone(), direction);
-            if let Some(&plat_cycle_start) = prev_states.get(&key) {
-                let plat_cycle_length = i - plat_cycle_start;
+            if let Some(&state_cycle_start) = prev_states.get(&key) {
+                let state_cycle_length = i - state_cycle_start;
                 let total_remaining_tilts = NUM_TILTS - i;
-                remaining_tilts = Some(total_remaining_tilts % plat_cycle_length - 1);
+                remaining_tilts = Some(total_remaining_tilts % state_cycle_length - 1);
             } else {
                 prev_states.insert(key, i);
             }
@@ -207,7 +207,7 @@ fn main() -> Result<()> {
 
     let platform: Platform = file_contents_str
         .try_into()
-        .context("Unable to parse platform")?;
+        .context("Unable to parse platform from file \"input.txt\"")?;
 
     println!("{}", part1(platform.clone()));
     println!("{}", part2(platform));
