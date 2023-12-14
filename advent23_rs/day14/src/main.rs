@@ -189,7 +189,12 @@ fn part2(mut platform: Platform) -> usize {
             if let Some(&state_cycle_start) = prev_states.get(&key) {
                 let state_cycle_length = i - state_cycle_start;
                 let total_remaining_tilts = NUM_TILTS - i;
-                remaining_tilts = Some(total_remaining_tilts % state_cycle_length - 1);
+                let shortcut_remaining_tilts = total_remaining_tilts % state_cycle_length;
+                if shortcut_remaining_tilts == 0 {
+                    break;
+                }
+
+                remaining_tilts = Some(shortcut_remaining_tilts - 1);
             } else {
                 prev_states.insert(key, i);
             }
