@@ -66,9 +66,6 @@ fn part2(puzzle_input: &[u8]) -> Result<usize> {
 
                 let mut found = false;
 
-                // labels should all point to same place so
-                // we can check equality by pointer!?
-                // (actually does it by fat pointer with slices but its fine)
                 for entry in list.iter_mut() {
                     if label == entry.label {
                         entry.focal_length = focal_length;
