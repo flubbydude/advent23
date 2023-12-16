@@ -108,14 +108,6 @@ struct State {
 }
 
 impl State {
-    fn initial_state() -> Self {
-        State {
-            row: 0,
-            column: 0,
-            direction: Direction::East,
-        }
-    }
-
     fn new(row: usize, column: usize, direction: Direction) -> Self {
         State {
             row,
@@ -212,11 +204,11 @@ impl State {
     }
 }
 
-fn part1(puzzle_input: &Array2D<Tile>) -> usize {
+fn num_energized(puzzle_input: &Array2D<Tile>, initial_state: State) -> usize {
     let mut energized = HashSet::new();
 
     let mut explored = HashSet::new();
-    let mut frontier = Vec::from([State::initial_state()]);
+    let mut frontier = Vec::from([initial_state]);
 
     while !frontier.is_empty() {
         let state = frontier.pop().unwrap();
@@ -241,12 +233,35 @@ fn part1(puzzle_input: &Array2D<Tile>) -> usize {
     energized.len()
 }
 
+fn part1(puzzle_input: &Array2D<Tile>) -> usize {
+    num_energized(puzzle_input, State::new(0, 0, Direction::East))
+}
+
+fn part2(puzzle_input: &Array2D<Tile>) -> usize {
+    let from_left = (0..puzzle_input.num_rows()).map(|row| State::new(row, 0, Direction::East));
+    let from_right = (0..puzzle_input.num_rows())
+        .map(|row| State::new(row, puzzle_input.num_columns() - 1, Direction::West));
+    let from_top =
+        (0..puzzle_input.num_columns()).map(|column| State::new(0, column, Direction::South));
+    let from_bottom = (0..puzzle_input.num_columns())
+        .map(|column| State::new(puzzle_input.num_rows() - 1, column, Direction::North));
+
+    from_left
+        .chain(from_right)
+        .chain(from_top)
+        .chain(from_bottom)
+        .map(|state| num_energized(puzzle_input, state))
+        .max()
+        .unwrap()
+}
+
 fn main() -> Result<()> {
     let file_contents = std::fs::read_to_string("input.txt")?;
 
     let puzzle_input = parse_input(&file_contents)?;
 
     println!("{}", part1(&puzzle_input));
+    println!("{}", part2(&puzzle_input));
 
     Ok(())
 }
@@ -269,6 +284,13 @@ mod tests {
     #[test]
     fn test_part1() -> Result<()> {
         assert_eq!(part1(&parse_input(TEST_INPUT)?), 46);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_part2() -> Result<()> {
+        assert_eq!(part2(&parse_input(TEST_INPUT)?), 51);
 
         Ok(())
     }
