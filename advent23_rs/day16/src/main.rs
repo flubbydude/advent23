@@ -17,9 +17,9 @@ impl Direction {
     fn try_move(
         &self,
         row: usize,
-        col: usize,
+        column: usize,
         num_rows: usize,
-        num_cols: usize,
+        num_columns: usize,
     ) -> Option<(usize, usize)> {
         // return row, col
         match self {
@@ -27,28 +27,28 @@ impl Direction {
                 if row == 0 {
                     None
                 } else {
-                    Some((row - 1, col))
+                    Some((row - 1, column))
                 }
             }
             Direction::East => {
-                if col == num_cols - 1 {
+                if column == num_columns - 1 {
                     None
                 } else {
-                    Some((row, col + 1))
+                    Some((row, column + 1))
                 }
             }
             Direction::South => {
                 if row == num_rows - 1 {
                     None
                 } else {
-                    Some((row + 1, col))
+                    Some((row + 1, column))
                 }
             }
             Direction::West => {
-                if col == 0 {
+                if column == 0 {
                     None
                 } else {
-                    Some((row, col - 1))
+                    Some((row, column - 1))
                 }
             }
         }
@@ -211,7 +211,7 @@ fn num_energized(puzzle_input: &Array2D<Tile>, initial_state: State) -> usize {
                 frontier.push(succ1);
                 frontier.push(succ2);
             }
-            _ => (),
+            GetSuccessorsResult::Zero => (),
         }
 
         energized.insert((state.row, state.column));
