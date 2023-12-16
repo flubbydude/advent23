@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, thread};
 
 use anyhow::{Context, Result};
 use array2d::Array2D;
@@ -12,18 +12,6 @@ enum Direction {
     South,
     West,
 }
-
-// impl Direction {
-//     fn opposite(&self) -> Self {
-//         use Direction::*;
-//         match self {
-//             North => South,
-//             East => West,
-//             South => North,
-//             West => East,
-//         }
-//     }
-// }
 
 impl Direction {
     fn try_move(
@@ -246,13 +234,21 @@ fn part2(puzzle_input: &Array2D<Tile>) -> usize {
     let from_bottom = (0..puzzle_input.num_columns())
         .map(|column| State::new(puzzle_input.num_rows() - 1, column, Direction::North));
 
-    from_left
-        .chain(from_right)
-        .chain(from_top)
-        .chain(from_bottom)
-        .map(|state| num_energized(puzzle_input, state))
-        .max()
-        .unwrap()
+    thread::scope(|s| {
+        let threads = from_left
+            .chain(from_right)
+            .chain(from_top)
+            .chain(from_bottom)
+            .map(|state| s.spawn(|| num_energized(puzzle_input, state)))
+            .collect::<Vec<_>>();
+
+        // implement max for results using fold_ok
+        threads
+            .into_iter()
+            .map(|thread| thread.join().unwrap())
+            .max()
+            .unwrap()
+    })
 }
 
 fn main() -> Result<()> {
