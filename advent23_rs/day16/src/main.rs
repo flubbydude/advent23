@@ -1,0 +1,275 @@
+use std::collections::HashSet;
+
+use anyhow::{Context, Result};
+use array2d::Array2D;
+use num::FromPrimitive;
+use num_derive::FromPrimitive;
+
+#[derive(Hash, Clone, Copy, PartialEq, Eq)]
+enum Direction {
+    North,
+    East,
+    South,
+    West,
+}
+
+// impl Direction {
+//     fn opposite(&self) -> Self {
+//         use Direction::*;
+//         match self {
+//             North => South,
+//             East => West,
+//             South => North,
+//             West => East,
+//         }
+//     }
+// }
+
+impl Direction {
+    fn try_move(
+        &self,
+        row: usize,
+        col: usize,
+        num_rows: usize,
+        num_cols: usize,
+    ) -> Option<(usize, usize)> {
+        // return row, col
+        match self {
+            Direction::North => {
+                if row == 0 {
+                    None
+                } else {
+                    Some((row - 1, col))
+                }
+            }
+            Direction::East => {
+                if col == num_cols - 1 {
+                    None
+                } else {
+                    Some((row, col + 1))
+                }
+            }
+            Direction::South => {
+                if row == num_rows - 1 {
+                    None
+                } else {
+                    Some((row + 1, col))
+                }
+            }
+            Direction::West => {
+                if col == 0 {
+                    None
+                } else {
+                    Some((row, col - 1))
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, FromPrimitive, Clone)]
+#[repr(u8)]
+enum Tile {
+    NorthSouthSplitter = b'|',
+    EastWestSplitter = b'-',
+    SlashMirror = b'/',
+    BackSlashMirror = b'\\',
+    Empty = b'.',
+}
+
+fn parse_input(input: &str) -> Result<Array2D<Tile>> {
+    let rows = input
+        .lines()
+        .map(|line| {
+            line.as_bytes()
+                .iter()
+                .map(|&c| {
+                    Tile::from_u8(c)
+                        .with_context(|| format!("Failed to parse tile from b'{}'", c as char))
+                })
+                .collect::<Result<Vec<Tile>, _>>()
+        })
+        .collect::<Result<Vec<Vec<Tile>>, _>>()?;
+
+    Array2D::from_rows(&rows).context("Failed to parse input rows of tiles into array2d")
+}
+
+enum GetSuccessorsResult<T> {
+    Zero,
+    One(T),
+    Two(T, T),
+}
+
+#[derive(Hash, PartialEq, Eq)]
+struct State {
+    row: usize,
+    column: usize,
+    direction: Direction,
+}
+
+impl State {
+    fn initial_state() -> Self {
+        State {
+            row: 0,
+            column: 0,
+            direction: Direction::East,
+        }
+    }
+
+    fn new(row: usize, column: usize, direction: Direction) -> Self {
+        State {
+            row,
+            column,
+            direction,
+        }
+    }
+
+    fn get_successors(&self, puzzle_input: &Array2D<Tile>) -> GetSuccessorsResult<Self> {
+        let &State {
+            row,
+            column,
+            direction: prev_dir,
+        } = self;
+
+        let mut next_dir = prev_dir;
+        let mut next_dir2 = None;
+
+        {
+            use Direction::*;
+
+            match puzzle_input[(row, column)] {
+                Tile::NorthSouthSplitter => match prev_dir {
+                    East | West => {
+                        next_dir = North;
+                        next_dir2 = Some(South);
+                    }
+                    _ => (),
+                },
+                Tile::EastWestSplitter => match prev_dir {
+                    North | South => {
+                        next_dir = East;
+                        next_dir2 = Some(West);
+                    }
+                    _ => (),
+                },
+                Tile::SlashMirror => {
+                    next_dir = match prev_dir {
+                        North => East,
+                        East => North,
+                        South => West,
+                        West => South,
+                    };
+                }
+                Tile::BackSlashMirror => {
+                    next_dir = match prev_dir {
+                        North => West,
+                        East => South,
+                        South => East,
+                        West => North,
+                    };
+                }
+                Tile::Empty => (),
+            }
+        }
+
+        let maybe_succ1 = if let Some((next_row, next_col)) = next_dir.try_move(
+            row,
+            column,
+            puzzle_input.num_rows(),
+            puzzle_input.num_columns(),
+        ) {
+            Some(State::new(next_row, next_col, next_dir))
+        } else {
+            None
+        };
+
+        let maybe_succ2 = if let Some(dir) = next_dir2 {
+            if let Some((next_row, next_col)) = dir.try_move(
+                row,
+                column,
+                puzzle_input.num_rows(),
+                puzzle_input.num_columns(),
+            ) {
+                Some(State::new(next_row, next_col, dir))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if let Some(succ1) = maybe_succ1 {
+            if let Some(succ2) = maybe_succ2 {
+                GetSuccessorsResult::Two(succ1, succ2)
+            } else {
+                GetSuccessorsResult::One(succ1)
+            }
+        } else if let Some(succ2) = maybe_succ2 {
+            GetSuccessorsResult::One(succ2)
+        } else {
+            GetSuccessorsResult::Zero
+        }
+    }
+}
+
+fn part1(puzzle_input: &Array2D<Tile>) -> usize {
+    let mut energized = HashSet::new();
+
+    let mut explored = HashSet::new();
+    let mut frontier = Vec::from([State::initial_state()]);
+
+    while !frontier.is_empty() {
+        let state = frontier.pop().unwrap();
+
+        if explored.contains(&state) {
+            continue;
+        }
+
+        match state.get_successors(puzzle_input) {
+            GetSuccessorsResult::One(succ) => frontier.push(succ),
+            GetSuccessorsResult::Two(succ1, succ2) => {
+                frontier.push(succ1);
+                frontier.push(succ2);
+            }
+            _ => (),
+        }
+
+        energized.insert((state.row, state.column));
+        explored.insert(state);
+    }
+
+    energized.len()
+}
+
+fn main() -> Result<()> {
+    let file_contents = std::fs::read_to_string("input.txt")?;
+
+    let puzzle_input = parse_input(&file_contents)?;
+
+    println!("{}", part1(&puzzle_input));
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const TEST_INPUT: &str = r#".|...\....
+|.-.\.....
+.....|-...
+........|.
+..........
+.........\
+..../.\\..
+.-.-/..|..
+.|....-|.\
+..//.|...."#;
+
+    #[test]
+    fn test_part1() -> Result<()> {
+        assert_eq!(part1(&parse_input(TEST_INPUT)?), 46);
+
+        Ok(())
+    }
+}
