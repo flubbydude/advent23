@@ -1,4 +1,3 @@
-use anyhow::Result;
 use array2d::Array2D;
 
 mod search;
@@ -62,7 +61,7 @@ impl Position {
         Position { row, column }
     }
 
-    fn _manhattan_distance(&self, other: &Self) -> usize {
+    fn manhattan_distance(&self, other: &Self) -> usize {
         let di = if self.row > other.row {
             self.row - other.row
         } else {
@@ -128,11 +127,21 @@ struct State {
 }
 
 impl State {
-    fn get_successors(&self, puzzle_input: &Array2D<u8>) -> Box<[(usize, State)]> {
+    fn get_successors(
+        &self,
+        puzzle_input: &Array2D<u8>,
+        is_ultra_crucible: bool,
+    ) -> Vec<(usize, State)> {
         let mut result = Vec::new();
 
+        let can_go_straight = if is_ultra_crucible {
+            self.num_straight < 10
+        } else {
+            self.num_straight < 3
+        };
+
         // try going straight
-        if self.num_straight != 2 {
+        if can_go_straight {
             if let Some(position) = self.position.move_in_dir(
                 self.direction,
                 puzzle_input.num_rows(),
@@ -149,45 +158,54 @@ impl State {
             }
         }
 
-        // try turning right
-        let right = self.direction.turn_right();
+        let can_turn = if is_ultra_crucible {
+            self.num_straight >= 4
+        } else {
+            true
+        };
 
-        if let Some(position) =
-            self.position
-                .move_in_dir(right, puzzle_input.num_rows(), puzzle_input.num_columns())
-        {
-            result.push((
-                puzzle_input[(position.row, position.column)] as usize,
-                State {
-                    position,
-                    direction: right,
-                    num_straight: 0,
-                },
-            ))
+        if can_turn {
+            // try turning right
+            let right = self.direction.turn_right();
+
+            if let Some(position) = self.position.move_in_dir(
+                right,
+                puzzle_input.num_rows(),
+                puzzle_input.num_columns(),
+            ) {
+                result.push((
+                    puzzle_input[(position.row, position.column)] as usize,
+                    State {
+                        position,
+                        direction: right,
+                        num_straight: 1,
+                    },
+                ))
+            }
+
+            // try turning left
+            let left = self.direction.turn_left();
+
+            if let Some(position) =
+                self.position
+                    .move_in_dir(left, puzzle_input.num_rows(), puzzle_input.num_columns())
+            {
+                result.push((
+                    puzzle_input[(position.row, position.column)] as usize,
+                    State {
+                        position,
+                        direction: left,
+                        num_straight: 1,
+                    },
+                ))
+            }
         }
 
-        // try turning left
-        let left = self.direction.turn_left();
-
-        if let Some(position) =
-            self.position
-                .move_in_dir(left, puzzle_input.num_rows(), puzzle_input.num_columns())
-        {
-            result.push((
-                puzzle_input[(position.row, position.column)] as usize,
-                State {
-                    position,
-                    direction: left,
-                    num_straight: 0,
-                },
-            ))
-        }
-
-        result.into_boxed_slice()
+        result
     }
 }
 
-fn part1(puzzle_input: &Array2D<u8>) -> usize {
+fn get_minimum_heat(puzzle_input: &Array2D<u8>, is_ultra_crucible: bool) -> usize {
     let initial_states = [
         State {
             position: Position::ZERO,
@@ -203,27 +221,31 @@ fn part1(puzzle_input: &Array2D<u8>) -> usize {
 
     let goal_position = Position::new(puzzle_input.num_rows() - 1, puzzle_input.num_columns() - 1);
 
-    let (total_cost, _path) = a_star_search(
+    // ultra crucible must go straight 4 times before goal.
+    a_star_search(
         &initial_states,
-        |state| state.get_successors(puzzle_input),
-        |state| state.position == goal_position,
-        |state| state.position._manhattan_distance(&goal_position),
+        |state| state.get_successors(puzzle_input, is_ultra_crucible),
+        |state| state.position == goal_position && (!is_ultra_crucible || state.num_straight >= 4),
+        |state| state.position.manhattan_distance(&goal_position),
     )
-    .unwrap();
-
-    // total cost = total heat loss
-    total_cost
+    .unwrap()
 }
 
-fn main() -> Result<()> {
-    let file_contents = std::fs::read_to_string("input.txt")?;
+fn part1(puzzle_input: &Array2D<u8>) -> usize {
+    get_minimum_heat(puzzle_input, false)
+}
+
+fn part2(puzzle_input: &Array2D<u8>) -> usize {
+    get_minimum_heat(puzzle_input, true)
+}
+
+fn main() {
+    let file_contents = std::fs::read_to_string("input.txt").unwrap();
 
     let puzzle_input = parse_input(&file_contents);
 
     println!("{}", part1(&puzzle_input));
-    // println!("{}", part2(&puzzle_input));
-
-    Ok(())
+    println!("{}", part2(&puzzle_input));
 }
 
 #[cfg(test)]
@@ -231,26 +253,44 @@ mod tests {
 
     use super::*;
 
-    const TEST_INPUT: &str = "2413432311323\n\
-                              3215453535623\n\
-                              3255245654254\n\
-                              3446585845452\n\
-                              4546657867536\n\
-                              1438598798454\n\
-                              4457876987766\n\
-                              3637877979653\n\
-                              4654967986887\n\
-                              4564679986453\n\
-                              1224686865563\n\
-                              2546548887735\n\
-                              4322674655533";
+    const TEST_INPUT_A: &str = "2413432311323\n\
+                                3215453535623\n\
+                                3255245654254\n\
+                                3446585845452\n\
+                                4546657867536\n\
+                                1438598798454\n\
+                                4457876987766\n\
+                                3637877979653\n\
+                                4654967986887\n\
+                                4564679986453\n\
+                                1224686865563\n\
+                                2546548887735\n\
+                                4322674655533";
+
+    const TEST_INPUT_B: &str = "111111111111\n\
+                                999999999991\n\
+                                999999999991\n\
+                                999999999991\n\
+                                999999999991";
 
     #[test]
-    fn test_part_1() -> Result<()> {
-        let puzzle_input = parse_input(TEST_INPUT);
+    fn test_part_1() {
+        let puzzle_input = parse_input(TEST_INPUT_A);
 
         assert_eq!(part1(&puzzle_input), 102);
+    }
 
-        Ok(())
+    #[test]
+    fn test_part_2a() {
+        let puzzle_input = parse_input(TEST_INPUT_A);
+
+        assert_eq!(part2(&puzzle_input), 94);
+    }
+
+    #[test]
+    fn test_part_2b() {
+        let puzzle_input = parse_input(TEST_INPUT_B);
+
+        assert_eq!(part2(&puzzle_input), 71);
     }
 }
