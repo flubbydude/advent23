@@ -198,9 +198,7 @@ fn num_energized(puzzle_input: &Array2D<Tile>, initial_state: State) -> usize {
     let mut explored = HashSet::new();
     let mut frontier = Vec::from([initial_state]);
 
-    while !frontier.is_empty() {
-        let state = frontier.pop().unwrap();
-
+    while let Some(state) = frontier.pop() {
         if explored.contains(&state) {
             continue;
         }
@@ -242,7 +240,6 @@ fn part2(puzzle_input: &Array2D<Tile>) -> usize {
             .map(|state| s.spawn(|| num_energized(puzzle_input, state)))
             .collect::<Vec<_>>();
 
-        // implement max for results using fold_ok
         threads
             .into_iter()
             .map(|thread| thread.join().unwrap())
@@ -266,7 +263,7 @@ fn main() -> Result<()> {
 mod tests {
     use super::*;
 
-    const TEST_INPUT: &str = r#".|...\....
+    const TEST_INPUT: &str = r".|...\....
 |.-.\.....
 .....|-...
 ........|.
@@ -275,7 +272,7 @@ mod tests {
 ..../.\\..
 .-.-/..|..
 .|....-|.\
-..//.|...."#;
+..//.|....";
 
     #[test]
     fn test_part1() -> Result<()> {
