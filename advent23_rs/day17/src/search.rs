@@ -4,7 +4,7 @@ use std::{cmp::Reverse, collections::HashMap, hash::Hash};
 
 // get the cost and the path taken
 pub fn a_star_search<T, C>(
-    initial_states: &[T],
+    initial_state: T,
 
     // boxed slice of (cost to get to successor, successor)
     get_successors: impl Fn(&T) -> Vec<(C, T)>,
@@ -16,20 +16,11 @@ where
     T: Clone + PartialEq + Eq + Hash,
     C: PrimInt,
 {
-    let mut frontier = initial_states
-        .iter()
-        .cloned()
-        .map(|state| {
-            let h = heuristic(&state);
-            (state, Reverse(h))
-        })
-        .collect::<PriorityQueue<_, _>>();
+    let mut frontier = PriorityQueue::new();
+    frontier.push(initial_state.clone(), Reverse(heuristic(&initial_state)));
 
-    let mut state_infos = initial_states
-        .iter()
-        .cloned()
-        .map(|state| (state, C::zero()))
-        .collect::<HashMap<_, _>>();
+    let mut state_infos = HashMap::new();
+    state_infos.insert(initial_state, C::zero());
 
     while let Some((state, _)) = frontier.pop() {
         let state_cost = state_infos[&state];
@@ -75,7 +66,7 @@ struct StateInfo<T: Clone + PartialEq + Eq + Hash, C: PrimInt> {
 // get the cost and the path taken
 #[allow(dead_code)]
 pub fn a_star_search_path<T, C>(
-    initial_states: &[T],
+    initial_state: T,
 
     // boxed slice of (cost to get to successor, successor)
     get_successors: impl Fn(&T) -> Vec<(C, T)>,
@@ -87,28 +78,17 @@ where
     T: Clone + PartialEq + Eq + Hash,
     C: PrimInt,
 {
-    let mut frontier = initial_states
-        .iter()
-        .cloned()
-        .map(|state| {
-            let h = heuristic(&state);
-            (state, Reverse(h))
-        })
-        .collect::<PriorityQueue<_, _>>();
+    let mut frontier = PriorityQueue::new();
+    frontier.push(initial_state.clone(), Reverse(heuristic(&initial_state)));
 
-    let mut state_infos = initial_states
-        .iter()
-        .cloned()
-        .map(|state| {
-            (
-                state,
-                StateInfo::<T, C> {
-                    cost: C::zero(),
-                    parent: None,
-                },
-            )
-        })
-        .collect::<HashMap<_, _>>();
+    let mut state_infos: HashMap<T, StateInfo<T, C>> = HashMap::new();
+    state_infos.insert(
+        initial_state,
+        StateInfo {
+            cost: C::zero(),
+            parent: None,
+        },
+    );
 
     while let Some((state, _)) = frontier.pop() {
         let state_cost = state_infos[&state].cost;

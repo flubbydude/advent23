@@ -206,24 +206,15 @@ impl State {
 }
 
 fn get_minimum_heat(puzzle_input: &Array2D<u8>, is_ultra_crucible: bool) -> usize {
-    let initial_states = [
+    let goal_position = Position::new(puzzle_input.num_rows() - 1, puzzle_input.num_columns() - 1);
+
+    // ultra crucible must go straight 4 times before goal.
+    a_star_search(
         State {
             position: Position::ZERO,
             direction: Direction::East,
             num_straight: 0,
         },
-        State {
-            position: Position::ZERO,
-            direction: Direction::South,
-            num_straight: 0,
-        },
-    ];
-
-    let goal_position = Position::new(puzzle_input.num_rows() - 1, puzzle_input.num_columns() - 1);
-
-    // ultra crucible must go straight 4 times before goal.
-    a_star_search(
-        &initial_states,
         |state| state.get_successors(puzzle_input, is_ultra_crucible),
         |state| state.position == goal_position && (!is_ultra_crucible || state.num_straight >= 4),
         |state| state.position.manhattan_distance(&goal_position),
