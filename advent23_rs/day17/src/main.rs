@@ -38,7 +38,6 @@ impl Direction {
 
     fn turn_left(&self) -> Self {
         use Direction::*;
-
         match self {
             North => West,
             East => North,
@@ -134,29 +133,31 @@ impl State {
     ) -> Vec<(usize, State)> {
         let mut result = Vec::new();
 
+        let mut try_going_dir = |dir| {
+            if let Some(position) =
+                self.position
+                    .move_in_dir(dir, puzzle_input.num_rows(), puzzle_input.num_columns())
+            {
+                result.push((
+                    puzzle_input[(position.row, position.column)] as usize,
+                    State {
+                        position,
+                        direction: dir,
+                        num_straight: if dir == self.direction {
+                            self.num_straight + 1
+                        } else {
+                            1
+                        },
+                    },
+                ))
+            }
+        };
+
         let can_go_straight = if is_ultra_crucible {
             self.num_straight < 10
         } else {
             self.num_straight < 3
         };
-
-        // try going straight
-        if can_go_straight {
-            if let Some(position) = self.position.move_in_dir(
-                self.direction,
-                puzzle_input.num_rows(),
-                puzzle_input.num_columns(),
-            ) {
-                result.push((
-                    puzzle_input[(position.row, position.column)] as usize,
-                    State {
-                        position,
-                        direction: self.direction,
-                        num_straight: self.num_straight + 1,
-                    },
-                ))
-            }
-        }
 
         let can_turn = if is_ultra_crucible {
             self.num_straight >= 4
@@ -164,41 +165,14 @@ impl State {
             true
         };
 
+        if can_go_straight {
+            // try going straight
+            try_going_dir(self.direction);
+        }
+
         if can_turn {
-            // try turning right
-            let right = self.direction.turn_right();
-
-            if let Some(position) = self.position.move_in_dir(
-                right,
-                puzzle_input.num_rows(),
-                puzzle_input.num_columns(),
-            ) {
-                result.push((
-                    puzzle_input[(position.row, position.column)] as usize,
-                    State {
-                        position,
-                        direction: right,
-                        num_straight: 1,
-                    },
-                ))
-            }
-
-            // try turning left
-            let left = self.direction.turn_left();
-
-            if let Some(position) =
-                self.position
-                    .move_in_dir(left, puzzle_input.num_rows(), puzzle_input.num_columns())
-            {
-                result.push((
-                    puzzle_input[(position.row, position.column)] as usize,
-                    State {
-                        position,
-                        direction: left,
-                        num_straight: 1,
-                    },
-                ))
-            }
+            try_going_dir(self.direction.turn_right());
+            try_going_dir(self.direction.turn_left());
         }
 
         result
@@ -206,16 +180,18 @@ impl State {
 }
 
 fn get_minimum_heat(puzzle_input: &Array2D<u8>, is_ultra_crucible: bool) -> usize {
+    let initial_state = State {
+        position: Position::ZERO,
+        direction: Direction::East,
+        num_straight: 0,
+    };
+
     let goal_position = Position::new(puzzle_input.num_rows() - 1, puzzle_input.num_columns() - 1);
 
-    // ultra crucible must go straight 4 times before goal.
     a_star_search(
-        State {
-            position: Position::ZERO,
-            direction: Direction::East,
-            num_straight: 0,
-        },
+        initial_state,
         |state| state.get_successors(puzzle_input, is_ultra_crucible),
+        // ultra crucible must go straight 4 times before goal
         |state| state.position == goal_position && (!is_ultra_crucible || state.num_straight >= 4),
         |state| state.position.manhattan_distance(&goal_position),
     )
