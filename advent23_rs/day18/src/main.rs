@@ -1,47 +1,9 @@
-use array2d::Array2D;
-use std::array;
-
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
-
-#[derive(Debug, Clone, Copy, EnumIter)]
+#[derive(Debug, Clone, Copy)]
 enum Direction {
     Right,
     Down,
     Left,
     Up,
-}
-
-impl Direction {
-    fn was_right_turn(&self, last_direction: Direction) -> bool {
-        use Direction::*;
-        match last_direction {
-            Right => matches!(self, Down),
-            Down => matches!(self, Left),
-            Left => matches!(self, Up),
-            Up => matches!(self, Right),
-        }
-    }
-
-    fn turn_right(&self) -> Self {
-        use Direction::*;
-        match self {
-            Right => Down,
-            Down => Left,
-            Left => Up,
-            Up => Right,
-        }
-    }
-
-    fn turn_left(&self) -> Self {
-        use Direction::*;
-        match self {
-            Right => Up,
-            Down => Right,
-            Left => Down,
-            Up => Left,
-        }
-    }
 }
 
 impl From<char> for Direction {
@@ -100,7 +62,7 @@ impl Instruction {
         // ex:
         // line = "R 6 (#70c710)""
         // instr = "70c710" => parse into Instruction { direction: Direction::Right, length: 461937 }
-        let instr = line.rsplit_once(' ').unwrap().1;
+        let instr = line.rsplit_once('#').unwrap().1.rsplit_once(')').unwrap().0;
 
         // remove last
         let mut hex_chars = instr.chars();
@@ -121,156 +83,56 @@ fn parse_input_part2(file_contents: &str) -> Vec<Instruction> {
     file_contents.lines().map(Instruction::from_part2).collect()
 }
 
-#[derive(Debug, Default, PartialEq, Eq, Clone)]
+#[derive(Debug, Default, Clone)]
 struct Position {
-    row: isize,
-    column: isize,
+    x: isize,
+    y: isize,
 }
 
 impl Position {
-    fn new(row: isize, column: isize) -> Self {
-        Position { row, column }
+    fn new(x: isize, y: isize) -> Self {
+        Position { x, y }
     }
 
     fn move_in_direction(&self, direction: Direction, length: usize) -> Self {
         match direction {
-            Direction::Right => Position::new(self.row, self.column + length as isize),
-            Direction::Down => Position::new(self.row + length as isize, self.column),
-            Direction::Left => Position::new(self.row, self.column - length as isize),
-            Direction::Up => Position::new(self.row - length as isize, self.column),
+            Direction::Right => Position::new(self.x + length as isize, self.y),
+            Direction::Down => Position::new(self.x, self.y + length as isize),
+            Direction::Left => Position::new(self.x - length as isize, self.y),
+            Direction::Up => Position::new(self.x, self.y - length as isize),
         }
     }
 }
 
-fn flood_fill_with_pound(array: &mut Array2D<u8>, position: Position) {
-    let mut stack = Vec::from([position]);
+fn solve(puzzle_input: &[Instruction]) -> usize {
+    // shoelace formula:
+    let (double_area, border, _) = puzzle_input.iter().fold(
+        (0isize, 0, Position::default()),
+        |(double_area, border, vertex), &Instruction { direction, length }| {
+            let next_vertex = vertex.move_in_direction(direction, length);
 
-    while let Some(position) = stack.pop() {
-        if position.row < 0
-            || position.row as usize >= array.num_rows()
-            || position.column < 0
-            || position.column as usize >= array.num_columns()
-            || array[(position.row as usize, position.column as usize)] == b'#'
-        {
-            continue;
-        }
+            let double_area = double_area + (vertex.x * next_vertex.y - next_vertex.x * vertex.y);
+            let border = border + length;
 
-        array[(position.row as usize, position.column as usize)] = b'#';
+            (double_area, border, next_vertex)
+        },
+    );
 
-        for direction in Direction::iter() {
-            stack.push(position.move_in_direction(direction, 1));
-        }
-    }
-}
-
-fn part1(puzzle_input: &[Instruction]) -> usize {
-    let mut corners = Vec::with_capacity(puzzle_input.len());
-    corners.push(Position::default());
-
-    let mut num_lefts = 0;
-    let mut num_rights = 0;
-
-    let mut maybe_last_dir = None;
-
-    for instruction in puzzle_input.split_last().unwrap().1 {
-        let next_corner = corners
-            .last()
-            .unwrap()
-            .move_in_direction(instruction.direction, instruction.length);
-
-        corners.push(next_corner);
-
-        if let Some(last_direction) = maybe_last_dir {
-            if instruction.direction.was_right_turn(last_direction) {
-                num_rights += 1;
-            } else {
-                num_lefts += 1;
-            }
-        }
-
-        maybe_last_dir = Some(instruction.direction);
-    }
-
-    let minimum_row = corners
-        .iter()
-        .map(|&Position { row, .. }| row)
-        .min()
-        .unwrap();
-
-    let minimum_column = corners
-        .iter()
-        .map(|&Position { column, .. }| column)
-        .min()
-        .unwrap();
-
-    let maximum_row = corners
-        .iter()
-        .map(|&Position { row, .. }| row)
-        .max()
-        .unwrap();
-
-    let maximum_column = corners
-        .iter()
-        .map(|&Position { column, .. }| column)
-        .max()
-        .unwrap();
-
-    let num_rows = (maximum_row - minimum_row + 1) as usize;
-    let num_columns = (maximum_column - minimum_column + 1) as usize;
-
-    let mut matrix = Array2D::filled_with(b'.', num_rows, num_columns);
-
-    let start_pos = Position {
-        row: -minimum_row,
-        column: -minimum_column,
-    };
-
-    let mut cur_pos = start_pos.clone();
-
-    for instruction in puzzle_input {
-        for _ in 0..instruction.length {
-            matrix[(cur_pos.row as usize, cur_pos.column as usize)] = b'#';
-            cur_pos = cur_pos.move_in_direction(instruction.direction, 1);
-        }
-    }
-
-    let inside_on_right = num_rights > num_lefts;
-
-    let mut cur_pos = start_pos;
-
-    for instruction in puzzle_input {
-        for _ in 0..instruction.length {
-            flood_fill_with_pound(
-                &mut matrix,
-                cur_pos.move_in_direction(
-                    if inside_on_right {
-                        instruction.direction.turn_right()
-                    } else {
-                        instruction.direction.turn_left()
-                    },
-                    1,
-                ),
-            );
-
-            cur_pos = cur_pos.move_in_direction(instruction.direction, 1);
-        }
-    }
-
-    let matrix = matrix;
-
-    matrix
-        .elements_row_major_iter()
-        .filter(|&&c| c == b'#')
-        .count()
+    // pick's theorem:
+    // i = inside squares, b = border squares
+    // A = i + b/2 - 1
+    // therefore i + b = A + b/2 + 1
+    // since we want i + b (number of squares that are #)
+    // then we need A + b/2 + 1
+    // the way we calculated area above either finds positive or negative area so must abs
+    (double_area.unsigned_abs() + border) / 2 + 1
 }
 
 fn main() {
     let file_contents = std::fs::read_to_string("input.txt").unwrap();
 
-    let puzzle_input = parse_input_part1(&file_contents);
-
-    println!("{}", part1(&puzzle_input));
-    // println!("{}", part2(&puzzle_input));
+    println!("{}", solve(&parse_input_part1(&file_contents)));
+    println!("{}", solve(&parse_input_part2(&file_contents)));
 }
 
 #[cfg(test)]
@@ -294,16 +156,16 @@ mod tests {
                               U 2 (#7a21e3)";
 
     #[test]
-    fn test_part_1() {
+    fn test_part1() {
         let puzzle_input = parse_input_part1(TEST_INPUT);
 
-        assert_eq!(part1(&puzzle_input), 62);
+        assert_eq!(solve(&puzzle_input), 62);
     }
 
-    // #[test]
-    // fn test_part_2() {
-    //     let puzzle_input = parse_input(TEST_INPUT);
+    #[test]
+    fn test_part2() {
+        let puzzle_input = parse_input_part2(TEST_INPUT);
 
-    //     assert_eq!(part2(&puzzle_input), 94);
-    // }
+        assert_eq!(solve(&puzzle_input), 952408144115);
+    }
 }
