@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Range};
 
 #[derive(Debug)]
 pub enum Category {
@@ -147,7 +147,7 @@ impl TryFrom<&str> for Rule {
 #[derive(Debug)]
 pub struct Workflow {
     pub name: Box<str>,
-    pub rules: Vec<Rule>,
+    pub rules: Box<[Rule]>,
 }
 
 impl Workflow {
@@ -158,7 +158,6 @@ impl Workflow {
             }
         }
 
-        // a valid workflow always
         panic!(
             "Workflow does not end in a Rule with condition: Condition::Always\n{:?}",
             self
@@ -209,6 +208,110 @@ impl WorflowMapExt for WorkflowMap {
                 WorkflowResult::Accept => break true,
                 WorkflowResult::Reject => break false,
             }
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct PartRanges {
+    pub x: Range<u64>,
+    pub m: Range<u64>,
+    pub a: Range<u64>,
+    pub s: Range<u64>,
+}
+
+pub enum PartRangesSplitResult {
+    All(PartRanges),
+    Some {
+        passes: PartRanges,
+        fails: PartRanges,
+    },
+    None(PartRanges),
+}
+
+impl PartRanges {
+    pub fn num_parts_possible(&self) -> u64 {
+        (self.x.end - self.x.start)
+            * (self.m.end - self.m.start)
+            * (self.a.end - self.a.start)
+            * (self.s.end - self.s.start)
+    }
+
+    pub fn split_on_condition(self, condition: &Condition) -> PartRangesSplitResult {
+        match *condition {
+            Condition::LessThan(ref cat, val) => {
+                let range = match cat {
+                    Category::X => &self.x,
+                    Category::M => &self.m,
+                    Category::A => &self.a,
+                    Category::S => &self.s,
+                };
+
+                if range.end <= val {
+                    PartRangesSplitResult::All(self)
+                } else if range.start >= val {
+                    PartRangesSplitResult::None(self)
+                } else {
+                    let mut passes = self.clone();
+
+                    match cat {
+                        Category::X => &mut passes.x,
+                        Category::M => &mut passes.m,
+                        Category::A => &mut passes.a,
+                        Category::S => &mut passes.s,
+                    }
+                    .end = val;
+
+                    let mut fails = self;
+
+                    match cat {
+                        Category::X => &mut fails.x,
+                        Category::M => &mut fails.m,
+                        Category::A => &mut fails.a,
+                        Category::S => &mut fails.s,
+                    }
+                    .start = val;
+
+                    PartRangesSplitResult::Some { passes, fails }
+                }
+            }
+            Condition::GreaterThan(ref cat, val) => {
+                let range = match cat {
+                    Category::X => &self.x,
+                    Category::M => &self.m,
+                    Category::A => &self.a,
+                    Category::S => &self.s,
+                };
+
+                if range.start > val {
+                    PartRangesSplitResult::All(self)
+                } else if range.end <= val + 1 {
+                    PartRangesSplitResult::None(self)
+                } else {
+                    let mut passes = self.clone();
+
+                    match cat {
+                        Category::X => &mut passes.x,
+                        Category::M => &mut passes.m,
+                        Category::A => &mut passes.a,
+                        Category::S => &mut passes.s,
+                    }
+                    .start = val + 1;
+
+                    let mut fails = self;
+
+                    match cat {
+                        Category::X => &mut fails.x,
+                        Category::M => &mut fails.m,
+                        Category::A => &mut fails.a,
+                        Category::S => &mut fails.s,
+                    }
+                    .end = val + 1;
+
+                    PartRangesSplitResult::Some { passes, fails }
+                }
+            }
+            Condition::Always => PartRangesSplitResult::All(self),
         }
     }
 }
