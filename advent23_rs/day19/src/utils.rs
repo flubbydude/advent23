@@ -179,7 +179,7 @@ impl TryFrom<&str> for Workflow {
         let rules = rest.split(',').map(Rule::try_from).collect::<Result<_>>()?;
 
         Ok(Workflow {
-            name: name.to_string().into_boxed_str(),
+            name: name.into(),
             rules,
         })
     }
