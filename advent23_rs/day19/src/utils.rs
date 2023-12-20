@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::{collections::HashMap, ops::Range};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Category {
     X,
     M,
@@ -32,30 +32,23 @@ pub struct Part {
 }
 
 impl Part {
+    pub fn get_category(&self, category: Category) -> u64 {
+        match category {
+            Category::X => self.x,
+            Category::M => self.m,
+            Category::A => self.a,
+            Category::S => self.s,
+        }
+    }
+
     pub fn sum_rating_nums(&self) -> u64 {
         self.x + self.m + self.a + self.s
     }
 
     pub fn passes_condition(&self, condition: &Condition) -> bool {
         match *condition {
-            // checks if category < val
-            Condition::LessThan(ref cat, val) => {
-                val > match cat {
-                    Category::X => self.x,
-                    Category::M => self.m,
-                    Category::A => self.a,
-                    Category::S => self.s,
-                }
-            }
-            // checks if category > val
-            Condition::GreaterThan(ref cat, val) => {
-                val < match cat {
-                    Category::X => self.x,
-                    Category::M => self.m,
-                    Category::A => self.a,
-                    Category::S => self.s,
-                }
-            }
+            Condition::LessThan(category, val) => self.get_category(category) < val,
+            Condition::GreaterThan(category, val) => self.get_category(category) > val,
             Condition::Always => true,
         }
     }
@@ -205,8 +198,8 @@ impl WorflowMapExt for WorkflowMap {
         loop {
             match self[current_workflow].process_part(part) {
                 WorkflowResult::Workflow(w) => current_workflow = w,
-                WorkflowResult::Accept => break true,
-                WorkflowResult::Reject => break false,
+                WorkflowResult::Accept => return true,
+                WorkflowResult::Reject => return false,
             }
         }
     }
@@ -230,22 +223,35 @@ pub enum PartRangesSplitResult {
 }
 
 impl PartRanges {
+    pub fn get_range(&self, category: Category) -> &Range<u64> {
+        match category {
+            Category::X => &self.x,
+            Category::M => &self.m,
+            Category::A => &self.a,
+            Category::S => &self.s,
+        }
+    }
+
+    pub fn get_range_mut(&mut self, category: Category) -> &mut Range<u64> {
+        match category {
+            Category::X => &mut self.x,
+            Category::M => &mut self.m,
+            Category::A => &mut self.a,
+            Category::S => &mut self.s,
+        }
+    }
+
     pub fn num_parts_possible(&self) -> u64 {
-        (self.x.end - self.x.start)
-            * (self.m.end - self.m.start)
-            * (self.a.end - self.a.start)
-            * (self.s.end - self.s.start)
+        [&self.x, &self.m, &self.a, &self.s]
+            .into_iter()
+            .map(|range| range.end - range.start)
+            .product()
     }
 
     pub fn split_on_condition(self, condition: &Condition) -> PartRangesSplitResult {
         match *condition {
-            Condition::LessThan(ref cat, val) => {
-                let range = match cat {
-                    Category::X => &self.x,
-                    Category::M => &self.m,
-                    Category::A => &self.a,
-                    Category::S => &self.s,
-                };
+            Condition::LessThan(category, val) => {
+                let range = self.get_range(category);
 
                 if range.end <= val {
                     PartRangesSplitResult::All(self)
@@ -253,35 +259,16 @@ impl PartRanges {
                     PartRangesSplitResult::None(self)
                 } else {
                     let mut passes = self.clone();
-
-                    match cat {
-                        Category::X => &mut passes.x,
-                        Category::M => &mut passes.m,
-                        Category::A => &mut passes.a,
-                        Category::S => &mut passes.s,
-                    }
-                    .end = val;
+                    passes.get_range_mut(category).end = val;
 
                     let mut fails = self;
-
-                    match cat {
-                        Category::X => &mut fails.x,
-                        Category::M => &mut fails.m,
-                        Category::A => &mut fails.a,
-                        Category::S => &mut fails.s,
-                    }
-                    .start = val;
+                    fails.get_range_mut(category).start = val;
 
                     PartRangesSplitResult::Some { passes, fails }
                 }
             }
-            Condition::GreaterThan(ref cat, val) => {
-                let range = match cat {
-                    Category::X => &self.x,
-                    Category::M => &self.m,
-                    Category::A => &self.a,
-                    Category::S => &self.s,
-                };
+            Condition::GreaterThan(category, val) => {
+                let range = self.get_range(category);
 
                 if range.start > val {
                     PartRangesSplitResult::All(self)
@@ -289,24 +276,10 @@ impl PartRanges {
                     PartRangesSplitResult::None(self)
                 } else {
                     let mut passes = self.clone();
-
-                    match cat {
-                        Category::X => &mut passes.x,
-                        Category::M => &mut passes.m,
-                        Category::A => &mut passes.a,
-                        Category::S => &mut passes.s,
-                    }
-                    .start = val + 1;
+                    passes.get_range_mut(category).start = val + 1;
 
                     let mut fails = self;
-
-                    match cat {
-                        Category::X => &mut fails.x,
-                        Category::M => &mut fails.m,
-                        Category::A => &mut fails.a,
-                        Category::S => &mut fails.s,
-                    }
-                    .end = val + 1;
+                    fails.get_range_mut(category).end = val + 1;
 
                     PartRangesSplitResult::Some { passes, fails }
                 }
