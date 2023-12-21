@@ -145,7 +145,7 @@ fn part2(grid: &Array2D<Tile>, num_steps: usize) -> usize {
         .flat_map(|i| (0..n).map(move |j| (i, j)))
         .collect::<Box<_>>();
 
-    let shift_and_get_num_squares = |row_shift, column_shift| {
+    let shift_and_get_num_reachable = |row_shift, column_shift| {
         full_square
             .iter()
             .map(|&(i, j)| (i + row_shift * n, j + column_shift * n))
@@ -171,23 +171,23 @@ fn part2(grid: &Array2D<Tile>, num_steps: usize) -> usize {
      *
      */
 
-    let o = shift_and_get_num_squares(2, 2);
-    let e = shift_and_get_num_squares(1, 2);
+    let o = shift_and_get_num_reachable(2, 2);
+    let e = shift_and_get_num_reachable(1, 2);
 
-    let a = shift_and_get_num_squares(0, 2);
-    let b = shift_and_get_num_squares(2, 4);
-    let c = shift_and_get_num_squares(4, 2);
-    let d = shift_and_get_num_squares(2, 0);
+    let a = shift_and_get_num_reachable(0, 2);
+    let b = shift_and_get_num_reachable(2, 4);
+    let c = shift_and_get_num_reachable(4, 2);
+    let d = shift_and_get_num_reachable(2, 0);
 
-    let x = shift_and_get_num_squares(1, 3);
-    let y = shift_and_get_num_squares(3, 3);
-    let z = shift_and_get_num_squares(3, 1);
-    let w = shift_and_get_num_squares(1, 1);
+    let x = shift_and_get_num_reachable(1, 3);
+    let y = shift_and_get_num_reachable(3, 3);
+    let z = shift_and_get_num_reachable(3, 1);
+    let w = shift_and_get_num_reachable(1, 1);
 
-    let x_prime = shift_and_get_num_squares(0, 3);
-    let y_prime = shift_and_get_num_squares(3, 4);
-    let z_prime = shift_and_get_num_squares(4, 1);
-    let w_prime = shift_and_get_num_squares(1, 0);
+    let x_prime = shift_and_get_num_reachable(0, 3);
+    let y_prime = shift_and_get_num_reachable(3, 4);
+    let z_prime = shift_and_get_num_reachable(4, 1);
+    let w_prime = shift_and_get_num_reachable(1, 0);
 
     let o_count = (q - 1) * (q - 1);
     let e_count = q * q;
