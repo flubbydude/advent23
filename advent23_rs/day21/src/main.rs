@@ -153,41 +153,41 @@ fn part2(grid: &Array2D<Tile>, num_steps: usize) -> usize {
             .count()
     };
 
+    /*
+     * Divide the rhombus of 5
+     * grids into this shape:
+     *
+     *   A
+     *  WEX
+     * DEOEB
+     *  ZEY
+     *   C
+     *
+     * also X is surrounded by 2 X primes
+     * same with Y, Z, W
+     *
+     * The final rhombus will have the amount of
+     * each letter described below
+     *
+     */
+
     let o = shift_and_get_num_squares(2, 2);
     let e = shift_and_get_num_squares(1, 2);
-
-    // dbg!(o);
-    // dbg!(e);
 
     let a = shift_and_get_num_squares(0, 2);
     let b = shift_and_get_num_squares(2, 4);
     let c = shift_and_get_num_squares(4, 2);
     let d = shift_and_get_num_squares(2, 0);
 
-    // dbg!(a);
-    // dbg!(b);
-    // dbg!(c);
-    // dbg!(d);
-
     let x = shift_and_get_num_squares(1, 3);
     let y = shift_and_get_num_squares(3, 3);
     let z = shift_and_get_num_squares(3, 1);
     let w = shift_and_get_num_squares(1, 1);
 
-    // dbg!(x);
-    // dbg!(y);
-    // dbg!(z);
-    // dbg!(w);
-
     let x_prime = shift_and_get_num_squares(0, 3);
     let y_prime = shift_and_get_num_squares(3, 4);
     let z_prime = shift_and_get_num_squares(4, 1);
     let w_prime = shift_and_get_num_squares(1, 0);
-
-    // dbg!(x_prime);
-    // dbg!(y_prime);
-    // dbg!(z_prime);
-    // dbg!(w_prime);
 
     let o_count = (q - 1) * (q - 1);
     let e_count = q * q;
