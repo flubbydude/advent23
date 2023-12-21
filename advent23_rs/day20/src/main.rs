@@ -1,11 +1,12 @@
 use anyhow::Result;
 use lazy_static::lazy_static;
+use num::integer::lcm;
 use std::{
     collections::{HashMap, VecDeque},
     fs,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Pulse {
     Low,
     High,
@@ -214,7 +215,7 @@ fn part1(mut graph: HashMap<Box<str>, Module>) -> usize {
     num_low * num_high
 }
 
-fn part2_brute_force(mut graph: HashMap<Box<str>, Module>) -> usize {
+fn _part2_brute_force(mut graph: HashMap<Box<str>, Module>) -> usize {
     let mut num_button_presses = 0;
 
     loop {
@@ -247,13 +248,105 @@ fn part2_brute_force(mut graph: HashMap<Box<str>, Module>) -> usize {
     }
 }
 
+fn part2(mut graph: HashMap<Box<str>, Module>) -> usize {
+    let mut num_button_presses = 0;
+
+    // assumptions:
+    // 1. fair assumption, &jz -> rx is the only (low) pulse to rx possible
+    // 2. All of jz's predecessors run on separate cycles
+    // which do not interact with each other, and that jz's predecessors
+    // send a high signal and then a low signal once at the end of each cycle,
+    // and does not send a different high signal ever,
+    // and lastly the cycle starts at the first button press and cleanly resets
+    // after the button press which sends a signal to jz
+
+    // for example some output of all signals sent to jz
+    // where i is the number of button presses:
+
+    // source = vf, destination = jz, i = 3847, switched to High
+    // source = vf, destination = jz, i = 3847, switched to Low
+    // source = rn, destination = jz, i = 3923, switched to High
+    // source = rn, destination = jz, i = 3923, switched to Low
+    // source = dh, destination = jz, i = 4001, switched to High
+    // source = dh, destination = jz, i = 4001, switched to Low
+    // source = mk, destination = jz, i = 4091, switched to High
+    // source = mk, destination = jz, i = 4091, switched to Low
+    // source = vf, destination = jz, i = 7694, switched to High
+    // source = vf, destination = jz, i = 7694, switched to Low
+    // source = rn, destination = jz, i = 7846, switched to High
+    // source = rn, destination = jz, i = 7846, switched to Low
+    // source = dh, destination = jz, i = 8002, switched to High
+    // source = dh, destination = jz, i = 8002, switched to Low
+    // source = mk, destination = jz, i = 8182, switched to High
+    // source = mk, destination = jz, i = 8182, switched to Low
+    // source = vf, destination = jz, i = 11541, switched to High
+    // source = vf, destination = jz, i = 11541, switched to Low
+    // source = rn, destination = jz, i = 11769, switched to High
+    // source = rn, destination = jz, i = 11769, switched to Low
+    // source = dh, destination = jz, i = 12003, switched to High
+    // source = dh, destination = jz, i = 12003, switched to Low
+    // source = mk, destination = jz, i = 12273, switched to High
+    // source = mk, destination = jz, i = 12273, switched to Low
+
+    let jz_predecessors = if let Module::Conjunction { predecessors, .. } = &graph["jz"] {
+        predecessors.clone()
+    } else {
+        panic!()
+    };
+    let mut jz_predecessor_first_button_presses: Vec<Option<usize>> =
+        vec![None; jz_predecessors.len()];
+
+    let mut num_jz_pred_found = 0;
+
+    loop {
+        num_button_presses += 1;
+
+        let mut queue = VecDeque::from([PulsePacket {
+            source: Box::from("button"),
+            destination: Box::from("broadcaster"),
+            pulse: Pulse::Low,
+        }]);
+
+        while let Some(PulsePacket {
+            source,
+            destination,
+            pulse,
+        }) = queue.pop_front()
+        {
+            if matches!(pulse, Pulse::High) && &destination as &str == "jz" {
+                let index = jz_predecessors
+                    .iter()
+                    .position(|pred| pred == &source)
+                    .unwrap();
+
+                if jz_predecessor_first_button_presses[index].is_none() {
+                    jz_predecessor_first_button_presses[index] = Some(num_button_presses);
+                    num_jz_pred_found += 1;
+                    if num_jz_pred_found == jz_predecessors.len() {
+                        return jz_predecessor_first_button_presses
+                            .into_iter()
+                            .map(|i| i.unwrap())
+                            .reduce(lcm)
+                            .unwrap();
+                    }
+                }
+            }
+
+            if let Some(module) = graph.get_mut(&destination) {
+                module.process_pulse(&source, pulse, &mut queue);
+            }
+        }
+    }
+}
+
 fn main() -> Result<()> {
     let file_contents = fs::read_to_string("input.txt")?;
 
     let graph = parse_input(&file_contents);
 
     println!("{}", part1(graph.clone()));
-    println!("{}", part2_brute_force(graph));
+    // println!("{}", _part2_brute_force(graph));
+    println!("{}", part2(graph));
 
     Ok(())
 }
