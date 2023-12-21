@@ -194,9 +194,7 @@ fn part2(grid: &Array2D<Tile>, num_steps: usize) -> usize {
     let x_count = q - 1;
     let x_prime_count = q;
 
-    a + b
-        + c
-        + d
+    (a + b + c + d)
         + o * o_count
         + e * e_count
         + (x + y + z + w) * x_count
