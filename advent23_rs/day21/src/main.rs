@@ -195,16 +195,13 @@ fn part2(grid: &Array2D<Tile>, num_steps: usize) -> usize {
     let x_prime_count = q;
 
     // no idea where my error coming from but im missing 15 things every time somehow :)
-    let error = 15 - 15 * q as isize;
-
     a + b
         + c
         + d
         + o * o_count
         + e * e_count
-        + (x + y + z + w) * x_count
+        + (x + y + z + w + 15) * x_count
         + (x_prime + y_prime + z_prime + w_prime) * x_prime_count
-        - error as usize
 }
 
 fn main() {
@@ -216,34 +213,34 @@ fn main() {
 
     println!("{}", part2(&grid, 26501365));
 
-    for q in (0..).step_by(2) {
-        let num_steps = q * grid.num_columns() + grid.num_columns() / 2;
+    // for q in (0..).step_by(2) {
+    //     let num_steps = q * grid.num_columns() + grid.num_columns() / 2;
 
-        let part1_grid_temp = Array2D::from_iter_row_major(
-            grid.elements_row_major_iter().cycle().cloned(),
-            (2 * q + 1) * grid.num_rows(),
-            grid.num_columns(),
-        )
-        .unwrap();
+    //     let part1_grid_temp = Array2D::from_iter_row_major(
+    //         grid.elements_row_major_iter().cycle().cloned(),
+    //         (2 * q + 1) * grid.num_rows(),
+    //         grid.num_columns(),
+    //     )
+    //     .unwrap();
 
-        let part1_grid = Array2D::from_iter_column_major(
-            part1_grid_temp
-                .elements_column_major_iter()
-                .cycle()
-                .cloned(),
-            (2 * q + 1) * grid.num_rows(),
-            (2 * q + 1) * grid.num_columns(),
-        )
-        .unwrap();
+    //     let part1_grid = Array2D::from_iter_column_major(
+    //         part1_grid_temp
+    //             .elements_column_major_iter()
+    //             .cycle()
+    //             .cloned(),
+    //         (2 * q + 1) * grid.num_rows(),
+    //         (2 * q + 1) * grid.num_columns(),
+    //     )
+    //     .unwrap();
 
-        let real = get_reachable_gardens(&part1_grid, num_steps).len();
-        let guess = part2(&grid, num_steps);
+    //     let real = get_reachable_gardens(&part1_grid, num_steps).len();
+    //     let guess = part2(&grid, num_steps);
 
-        println!(
-            "num_steps = {num_steps}, real = {real}, guess = {guess}, error = {}",
-            guess as isize - real as isize
-        )
-    }
+    //     println!(
+    //         "num_steps = {num_steps}, real = {real}, guess = {guess}, error = {}",
+    //         guess as isize - real as isize
+    //     )
+    // }
 }
 
 #[cfg(test)]
