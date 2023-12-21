@@ -171,7 +171,7 @@ fn part2(grid: &Array2D<Tile>, num_steps: usize) -> usize {
 
     let x = shift_and_get_num_squares(1, 3);
     let y = shift_and_get_num_squares(3, 3);
-    let z = shift_and_get_num_squares(1, 3);
+    let z = shift_and_get_num_squares(3, 1);
     let w = shift_and_get_num_squares(1, 1);
 
     // dbg!(x);
@@ -194,13 +194,12 @@ fn part2(grid: &Array2D<Tile>, num_steps: usize) -> usize {
     let x_count = q - 1;
     let x_prime_count = q;
 
-    // no idea where my error coming from but im missing 15 things every time somehow :)
     a + b
         + c
         + d
         + o * o_count
         + e * e_count
-        + (x + y + z + w + 15) * x_count
+        + (x + y + z + w) * x_count
         + (x_prime + y_prime + z_prime + w_prime) * x_prime_count
 }
 
