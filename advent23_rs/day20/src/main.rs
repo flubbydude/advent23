@@ -127,8 +127,8 @@ fn part2<'a>(mut graph: HashMap<&'a str, RefCell<ModuleEnum<'a>>>) -> usize {
     let jz_predecessors;
     {
         let jz_borrowed = &graph["jz"].borrow();
-        jz_predecessors = if let ModuleEnum::Conjunction(conj) = jz_borrowed.deref() {
-            conj.predecessors().iter().cloned().collect::<Box<_>>()
+        if let ModuleEnum::Conjunction(conj) = jz_borrowed.deref() {
+            jz_predecessors = conj.predecessors().iter().cloned().collect::<Box<_>>()
         } else {
             panic!("jz is not a Conjunction Module");
         };
