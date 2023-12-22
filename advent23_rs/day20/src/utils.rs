@@ -83,23 +83,18 @@ pub struct Conjunction<'a> {
     // most_recent_pulses: HashMap<&'a str, Pulse>,
     name: &'a str,
     successors: Box<[&'a str]>,
-    predecessors: Vec<&'a str>,
-    most_recent_pulses: Vec<Pulse>,
+    predecessors: Box<[&'a str]>,
+    most_recent_pulses: Box<[Pulse]>,
 }
 
 impl<'a> Conjunction<'a> {
-    pub fn new(name: &'a str, successors: Box<[&'a str]>) -> Self {
+    pub fn new(name: &'a str, successors: Box<[&'a str]>, predecessors: Box<[&'a str]>) -> Self {
         Conjunction {
             name,
             successors,
-            predecessors: Vec::new(),
-            most_recent_pulses: Vec::new(),
+            most_recent_pulses: vec![Pulse::Low; predecessors.len()].into_boxed_slice(),
+            predecessors,
         }
-    }
-
-    pub fn add_predecessor(&mut self, predecessor: &'a str) {
-        self.predecessors.push(predecessor);
-        self.most_recent_pulses.push(Pulse::Low);
     }
 
     pub fn predecessors(&self) -> &[&'a str] {

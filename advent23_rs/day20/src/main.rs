@@ -10,51 +10,101 @@ use std::{
 mod utils;
 use utils::{Broadcaster, Button, Conjunction, FlipFlop, Module, ModuleEnum, Pulse, PulsePacket};
 
-fn parse_line<'a>(line: &'a str) -> ModuleEnum<'a> {
+enum ModuleOrPlaceholder<'a> {
+    Module(ModuleEnum<'a>),
+    ConjunctionPlaceholder {
+        module_name: &'a str,
+        successors: Box<[&'a str]>,
+        predecessors: Vec<&'a str>,
+    },
+}
+
+impl<'a> ModuleOrPlaceholder<'a> {
+    fn new_placeholder(module_name: &'a str, successors: Box<[&'a str]>) -> Self {
+        ModuleOrPlaceholder::ConjunctionPlaceholder {
+            module_name,
+            successors,
+            predecessors: Vec::new(),
+        }
+    }
+}
+
+fn parse_line<'a>(line: &'a str) -> ModuleOrPlaceholder<'a> {
     let (module_description, successors_str) = line.split_once(" -> ").unwrap();
 
     let successors = successors_str.split(", ").collect();
 
     let (first_char, module_name) = module_description.split_at(1);
     match first_char {
-        "%" => FlipFlop::new(module_name, successors).into(),
-        "&" => Conjunction::new(module_name, successors).into(),
+        "%" => ModuleOrPlaceholder::Module(FlipFlop::new(module_name, successors).into()),
+        "&" => ModuleOrPlaceholder::new_placeholder(module_name, successors),
         "b" => {
             assert_eq!(
                 module_description, "broadcaster",
                 "Cannot parse \"{}\" into Module",
                 line
             );
-            Broadcaster::new(successors).into()
+            ModuleOrPlaceholder::Module(Broadcaster::new(successors).into())
         }
         _ => panic!("Cannot parse \"{}\" into Module", line),
     }
 }
 
-fn parse_input<'a>(input: &'a str) -> HashMap<&'a str, RefCell<ModuleEnum>> {
-    let mut result: HashMap<&str, RefCell<ModuleEnum>> = input
+fn parse_input<'a>(input: &'a str) -> HashMap<&'a str, ModuleEnum> {
+    let temp_graph: HashMap<&str, RefCell<ModuleOrPlaceholder>> = input
         .lines()
         .map(parse_line)
-        .map(|module| (module.name(), RefCell::new(module)))
+        .map(|module_or_placeholder| {
+            let module_name = match &module_or_placeholder {
+                ModuleOrPlaceholder::Module(module) => module.name(),
+                &ModuleOrPlaceholder::ConjunctionPlaceholder { module_name, .. } => module_name,
+            };
+            (module_name, RefCell::new(module_or_placeholder))
+        })
         .collect();
 
-    for module in result.values() {
-        for &successor in module.borrow().successors() {
-            if let Some(succ_module_refcell) = result.get(successor) {
-                let mut succ_module_ref = succ_module_refcell.borrow_mut();
-                if let ModuleEnum::Conjunction(conj) = succ_module_ref.deref_mut() {
-                    conj.add_predecessor(module.borrow().name());
+    for (&module_name, module_or_placeholder_refcell) in temp_graph.iter() {
+        let module_or_placeholder_ref = module_or_placeholder_refcell.borrow();
+        let successors = match module_or_placeholder_ref.deref() {
+            ModuleOrPlaceholder::Module(module) => module.successors(),
+            ModuleOrPlaceholder::ConjunctionPlaceholder { successors, .. } => successors,
+        };
+
+        for &successor in successors {
+            if let Some(other_module_or_placeholder_refcell) = temp_graph.get(successor) {
+                let mut succ_module_ref = other_module_or_placeholder_refcell.borrow_mut();
+                if let ModuleOrPlaceholder::ConjunctionPlaceholder { predecessors, .. } =
+                    succ_module_ref.deref_mut()
+                {
+                    predecessors.push(module_name);
                 }
             }
         }
     }
 
-    result.insert("button", RefCell::new(Button.into()));
+    // convert result into correct type by copying everything over
+    let mut result: HashMap<&str, ModuleEnum> = temp_graph
+        .into_iter()
+        .map(|(module_name, module_or_placeholder_refcell)| {
+            let module = match module_or_placeholder_refcell.into_inner() {
+                ModuleOrPlaceholder::Module(module) => module,
+                ModuleOrPlaceholder::ConjunctionPlaceholder {
+                    successors,
+                    predecessors,
+                    ..
+                } => Conjunction::new(module_name, successors, predecessors.into_boxed_slice())
+                    .into(),
+            };
+            (module_name, module)
+        })
+        .collect();
+
+    result.insert("button", Button.into());
 
     result
 }
 
-fn part1<'a>(mut graph: HashMap<&'a str, RefCell<ModuleEnum<'a>>>) -> usize {
+fn part1<'a>(mut graph: HashMap<&'a str, ModuleEnum<'a>>) -> usize {
     let mut num_low = 0;
     let mut num_high = 0;
 
@@ -74,9 +124,7 @@ fn part1<'a>(mut graph: HashMap<&'a str, RefCell<ModuleEnum<'a>>>) -> usize {
             }
 
             if let Some(module) = graph.get_mut(&destination) {
-                module
-                    .borrow_mut()
-                    .process_pulse(&source, pulse, &mut queue);
+                module.process_pulse(&source, pulse, &mut queue);
             }
         }
     }
@@ -84,7 +132,7 @@ fn part1<'a>(mut graph: HashMap<&'a str, RefCell<ModuleEnum<'a>>>) -> usize {
     num_low * num_high
 }
 
-fn part2<'a>(mut graph: HashMap<&'a str, RefCell<ModuleEnum<'a>>>) -> usize {
+fn part2<'a>(mut graph: HashMap<&'a str, ModuleEnum<'a>>) -> usize {
     let mut num_button_presses = 0;
 
     // assumptions:
@@ -124,15 +172,11 @@ fn part2<'a>(mut graph: HashMap<&'a str, RefCell<ModuleEnum<'a>>>) -> usize {
     // source = mk, destination = jz, i = 12273, switched to High
     // source = mk, destination = jz, i = 12273, switched to Low
 
-    let jz_predecessors;
-    {
-        let jz_borrowed = &graph["jz"].borrow();
-        if let ModuleEnum::Conjunction(conj) = jz_borrowed.deref() {
-            jz_predecessors = conj.predecessors().iter().cloned().collect::<Box<_>>()
-        } else {
-            panic!("jz is not a Conjunction Module");
-        };
-    }
+    let jz_predecessors = if let ModuleEnum::Conjunction(conj) = &graph["jz"] {
+        conj.predecessors().iter().cloned().collect::<Box<_>>()
+    } else {
+        panic!("jz is not a Conjunction Module");
+    };
 
     let mut jz_predecessor_first_button_presses =
         vec![None; jz_predecessors.len()].into_boxed_slice();
@@ -171,9 +215,7 @@ fn part2<'a>(mut graph: HashMap<&'a str, RefCell<ModuleEnum<'a>>>) -> usize {
             }
 
             if let Some(module) = graph.get_mut(&destination) {
-                module
-                    .borrow_mut()
-                    .process_pulse(&source, pulse, &mut queue);
+                module.process_pulse(&source, pulse, &mut queue);
             }
         }
     }
