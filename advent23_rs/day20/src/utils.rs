@@ -102,7 +102,7 @@ impl<'a> Conjunction<'a> {
         self.most_recent_pulses.push(Pulse::Low);
     }
 
-    pub fn get_predecessors(&self) -> &[&'a str] {
+    pub fn predecessors(&self) -> &[&'a str] {
         &self.predecessors
     }
 }
