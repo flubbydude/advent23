@@ -59,11 +59,8 @@ fn part1<'a>(mut graph: HashMap<&'a str, RefCell<ModuleEnum<'a>>>) -> usize {
     let mut num_high = 0;
 
     for _ in 0..1000 {
-        let mut queue = VecDeque::from([PulsePacket {
-            source: "button",
-            destination: "broadcaster",
-            pulse: Pulse::Low,
-        }]);
+        let mut queue = VecDeque::new();
+        Button.send_to_successors(Pulse::Low, &mut queue);
 
         while let Some(PulsePacket {
             source,
@@ -145,11 +142,8 @@ fn part2<'a>(mut graph: HashMap<&'a str, RefCell<ModuleEnum<'a>>>) -> usize {
     loop {
         num_button_presses += 1;
 
-        let mut queue = VecDeque::from([PulsePacket {
-            source: "button",
-            destination: "broadcaster",
-            pulse: Pulse::Low,
-        }]);
+        let mut queue = VecDeque::new();
+        Button.send_to_successors(Pulse::Low, &mut queue);
 
         while let Some(PulsePacket {
             source,
