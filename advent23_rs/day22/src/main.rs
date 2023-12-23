@@ -63,7 +63,7 @@ fn drop_bricks(mut bricks: Vec<Brick>) -> Vec<Brick> {
     // create a list which is sorted by maximum Z value
     let mut landed_bricks = Vec::new();
 
-    for falling_brick in bricks {
+    for mut falling_brick in bricks {
         // landed_bricks is in sorted order lowest max Z to highest max Z
         // but we iterate in reverse to find the first thing hit, to_land_on
         let to_land_on = landed_bricks
@@ -79,9 +79,7 @@ fn drop_bricks(mut bricks: Vec<Brick>) -> Vec<Brick> {
         };
 
         // land on to_land_on
-        let mut falling_brick = falling_brick;
         falling_brick.set_bottom_z(new_z_value);
-        let falling_brick = falling_brick;
 
         // add the brick to the list
         let insert_index = match landed_bricks
