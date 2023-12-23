@@ -29,7 +29,7 @@ impl<'a> ModuleOrPlaceholder<'a> {
     }
 }
 
-fn parse_line<'a>(line: &'a str) -> ModuleOrPlaceholder<'a> {
+fn parse_line(line: &str) -> ModuleOrPlaceholder {
     let (module_description, successors_str) = line.split_once(" -> ").unwrap();
 
     let successors = successors_str.split(", ").collect();
@@ -50,7 +50,7 @@ fn parse_line<'a>(line: &'a str) -> ModuleOrPlaceholder<'a> {
     }
 }
 
-fn parse_input<'a>(input: &'a str) -> HashMap<&'a str, ModuleEnum> {
+fn parse_input(input: &str) -> HashMap<&str, ModuleEnum> {
     let temp_graph: HashMap<&str, RefCell<ModuleOrPlaceholder>> = input
         .lines()
         .map(parse_line)
@@ -124,7 +124,7 @@ fn part1<'a>(mut graph: HashMap<&'a str, ModuleEnum<'a>>) -> usize {
             }
 
             if let Some(module) = graph.get_mut(&destination) {
-                module.process_pulse(&source, pulse, &mut queue);
+                module.process_pulse(source, pulse, &mut queue);
             }
         }
     }
@@ -206,7 +206,7 @@ fn part2<'a>(mut graph: HashMap<&'a str, ModuleEnum<'a>>) -> usize {
                     num_jz_pred_found += 1;
                     if num_jz_pred_found == jz_predecessors.len() {
                         return jz_predecessor_first_button_presses
-                            .into_iter()
+                            .iter()
                             .map(|i| i.unwrap())
                             .reduce(lcm)
                             .unwrap();
@@ -215,7 +215,7 @@ fn part2<'a>(mut graph: HashMap<&'a str, ModuleEnum<'a>>) -> usize {
             }
 
             if let Some(module) = graph.get_mut(&destination) {
-                module.process_pulse(&source, pulse, &mut queue);
+                module.process_pulse(source, pulse, &mut queue);
             }
         }
     }
