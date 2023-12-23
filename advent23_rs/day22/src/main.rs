@@ -5,7 +5,7 @@ use std::{
     fs,
 };
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Position {
     x: u32,
     y: u32,
@@ -86,11 +86,12 @@ impl From<Brick> for BrickByMaxZ {
 }
 
 fn drop_bricks(mut bricks: Vec<Brick>) -> Vec<Brick> {
+    // sort by minimum Z
     bricks.sort_unstable_by(|brick1, brick2| brick1.min.z.cmp(&brick2.min.z));
 
+    // create a dummy brick to serve as the ground
     let ground_brick = Brick {
-        // (defaults to the origin)
-        min: Position::default(),
+        min: Position { x: 0, y: 0, z: 0 },
         max: Position {
             x: u32::MAX,
             y: u32::MAX,
@@ -98,19 +99,22 @@ fn drop_bricks(mut bricks: Vec<Brick>) -> Vec<Brick> {
         },
     };
 
-    // sort on maximum Z value
+    // create a btree set which sorts on maximum Z value
     let mut landed_bricks: BTreeSet<BrickByMaxZ> = BTreeSet::from([ground_brick.into()]);
 
     for mut brick in bricks {
-        // note landed_bricks is in sorted order from highest Z to lowest Z?
+        // landed_bricks is in sorted order lowest max Z to highest max Z
+        // but we iterate in reverse to find the first thing hit, to_land_on
         let BrickByMaxZ(to_land_on) = landed_bricks
             .iter()
             .rev()
             .find(|BrickByMaxZ(other_brick)| brick.horizontally_collides(other_brick))
             .unwrap();
 
+        // land on to_land_on
         brick.set_bottom_z(to_land_on.max.z + 1);
 
+        // add the brick to the set
         landed_bricks.insert(brick.into());
     }
 
@@ -123,6 +127,7 @@ fn drop_bricks(mut bricks: Vec<Brick>) -> Vec<Brick> {
 
     // get rid of the ground dummy block
     result.pop();
+
     result
 }
 
