@@ -85,8 +85,11 @@ impl GridExt for Array2D<Tile> {
 
             // only check out of bounds on top and bottom
             if row == 0 {
-                if matches!(state.direction, Direction::South) {
-                    return Some((1, column));
+                if matches!(direction_to_try, Direction::South) {
+                    return Some(State {
+                        direction: direction_to_try,
+                        position: (1, column),
+                    });
                 } else {
                     return None;
                 }
@@ -106,25 +109,18 @@ impl GridExt for Array2D<Tile> {
             if matches!(self[new_position], Tile::Forest) {
                 None
             } else {
-                Some(new_position)
+                Some(State {
+                    direction: direction_to_try,
+                    position: new_position,
+                })
             }
         };
 
         match self[state.position] {
-            Tile::Path => Direction::iter()
-                .filter_map(|direction_to_try| {
-                    try_direction(direction_to_try).map(|new_position| State {
-                        direction: direction_to_try,
-                        position: new_position,
-                    })
-                })
-                .collect(),
+            Tile::Path => Direction::iter().filter_map(try_direction).collect(),
             Tile::Slope(direction_to_try) => {
-                if let Some(new_position) = try_direction(direction_to_try) {
-                    vec![State {
-                        direction: direction_to_try,
-                        position: new_position,
-                    }]
+                if let Some(new_state) = try_direction(direction_to_try) {
+                    vec![new_state]
                 } else {
                     vec![]
                 }
@@ -252,5 +248,24 @@ mod tests {
         let grid = parse_input(TEST_INPUT);
 
         assert_eq!(grid.longest_path(), 94);
+    }
+
+    #[test]
+    fn test_part2() {
+        let grid = parse_input(TEST_INPUT);
+
+        let grid = Array2D::from_iter_row_major(
+            grid.elements_row_major_iter()
+                .copied()
+                .map(|tile| match tile {
+                    Tile::Slope(_) => Tile::Path,
+                    tile => tile,
+                }),
+            grid.num_rows(),
+            grid.num_columns(),
+        )
+        .unwrap();
+
+        assert_eq!(grid.longest_path(), 154);
     }
 }
