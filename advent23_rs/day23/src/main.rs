@@ -143,6 +143,12 @@ impl GridExt for Array2D<Tile> {
     }
 }
 
+fn _longest_path_len_no_cycles(grid: &Array2D<Tile>) -> usize {
+    grid.to_graph()
+        ._longest_path_len(&(0, 1), &(grid.num_rows() - 1, grid.num_columns() - 2))
+        .unwrap()
+}
+
 #[derive(Debug)]
 struct Graph<T: PartialEq + Eq + Hash>(HashMap<T, Vec<(T, usize)>>);
 
@@ -214,7 +220,7 @@ impl<T: PartialEq + Eq + Hash + Clone> Graph<T> {
     /// Perform a bellman-ford variant to find longest path length
     ///
     /// Only works if the graph has no cycles
-    fn _longest_path_len(&self, source: T, target: T) -> Option<usize> {
+    fn _longest_path_len(&self, source: &T, target: &T) -> Option<usize> {
         let mut distances = HashMap::from([(source, 0)]);
 
         for _ in 0..self.0.len() - 1 {
@@ -224,7 +230,7 @@ impl<T: PartialEq + Eq + Hash + Clone> Graph<T> {
                         let new_distance_to = distance_from + weight;
 
                         distances
-                            .entry(to.clone())
+                            .entry(to)
                             .and_modify(|distance_to| {
                                 if new_distance_to > *distance_to {
                                     *distance_to = new_distance_to;
@@ -249,7 +255,7 @@ impl<T: PartialEq + Eq + Hash + Clone> Graph<T> {
             }
         }
 
-        distances.get(&target).copied()
+        distances.get(target).copied()
     }
 
     // brute force longest path from s to t
@@ -301,6 +307,8 @@ fn main() {
 
     println!("Part 1: {}", grid.longest_path_len());
 
+    // println!("Part 1: {}", _longest_path_len_no_cycles(&grid));
+
     grid.replace_slopes_with_paths();
 
     println!("Part 2: {}", grid.longest_path_len());
@@ -347,6 +355,13 @@ mod tests {
         let grid = parse_input(TEST_INPUT);
 
         assert_eq!(grid.longest_path_len(), 94);
+    }
+
+    #[test]
+    fn test_part1_no_brute_force() {
+        let grid = parse_input(TEST_INPUT);
+
+        assert_eq!(_longest_path_len_no_cycles(&grid), 94);
     }
 
     #[test]
