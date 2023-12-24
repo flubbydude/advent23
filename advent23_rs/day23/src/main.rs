@@ -67,6 +67,7 @@ struct State {
 }
 
 trait GridExt {
+    fn replace_slopes_with_paths(&mut self);
     fn get_successors(&self, state: &State) -> Vec<State>;
     fn reachable_edges(&self) -> Vec<(State, State)>;
     fn longest_path(&self) -> usize;
@@ -75,6 +76,16 @@ trait GridExt {
 const START_POS: (usize, usize) = (0, 1);
 
 impl GridExt for Array2D<Tile> {
+    fn replace_slopes_with_paths(&mut self) {
+        let mut i = 0;
+        while let Some(elem) = self.get_mut_row_major(i) {
+            if matches!(*elem, Tile::Slope(_)) {
+                *elem = Tile::Path;
+            }
+            i += 1;
+        }
+    }
+
     fn get_successors(&self, state: &State) -> Vec<State> {
         let try_direction = |direction_to_try: Direction| {
             if direction_to_try.is_opposite(&state.direction) {
@@ -196,23 +207,13 @@ impl GridExt for Array2D<Tile> {
 fn main() {
     let puzzle_input = fs::read_to_string("input.txt").unwrap();
 
-    let grid = parse_input(&puzzle_input);
+    let mut grid = parse_input(&puzzle_input);
 
     println!("Part 1: {}", grid.longest_path());
 
-    let grid_part2 = Array2D::from_iter_row_major(
-        grid.elements_row_major_iter()
-            .copied()
-            .map(|tile| match tile {
-                Tile::Slope(_) => Tile::Path,
-                tile => tile,
-            }),
-        grid.num_rows(),
-        grid.num_columns(),
-    )
-    .unwrap();
+    grid.replace_slopes_with_paths();
 
-    println!("Part 2: {}", grid_part2.longest_path());
+    println!("Part 2: {}", grid.longest_path());
 }
 
 #[cfg(test)]
@@ -252,19 +253,9 @@ mod tests {
 
     #[test]
     fn test_part2() {
-        let grid = parse_input(TEST_INPUT);
+        let mut grid = parse_input(TEST_INPUT);
 
-        let grid = Array2D::from_iter_row_major(
-            grid.elements_row_major_iter()
-                .copied()
-                .map(|tile| match tile {
-                    Tile::Slope(_) => Tile::Path,
-                    tile => tile,
-                }),
-            grid.num_rows(),
-            grid.num_columns(),
-        )
-        .unwrap();
+        grid.replace_slopes_with_paths();
 
         assert_eq!(grid.longest_path(), 154);
     }
