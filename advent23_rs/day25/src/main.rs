@@ -12,12 +12,12 @@ fn parse_input(input: &str) -> Graph {
 
     for line in input.lines() {
         let (node, successors) = line.split_once(':').unwrap();
-        result
-            .entry(node)
-            .and_modify(|adj_list| adj_list.extend(successors.split_ascii_whitespace()))
-            .or_insert(successors.split_ascii_whitespace().collect());
 
-        for successor in successors.split_ascii_whitespace() {
+        let successors = successors.split_ascii_whitespace().collect::<Vec<_>>();
+
+        result.entry(node).or_default().extend(&successors);
+
+        for successor in successors {
             result.entry(successor).or_default().push(node);
         }
     }
