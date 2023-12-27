@@ -1,6 +1,5 @@
 use priority_queue::PriorityQueue;
 use std::{
-    cell::RefCell,
     collections::{HashMap, HashSet},
     fs,
 };
@@ -54,18 +53,9 @@ struct MinCutInfo<'a> {
 // https://networkx.org/documentation/stable/_modules/networkx/algorithms/connectivity/stoerwagner.html#stoer_wagner
 // assumes graph is connected and has at least 2 nodes
 fn stoer_wagner<'a>(graph: &Graph<'a>) -> MinCutInfo<'a> {
-    let mut weighted_graph: HashMap<&str, RefCell<HashMap<&str, usize>>> = graph
+    let mut weighted_graph: HashMap<&str, HashMap<&str, usize>> = graph
         .iter()
-        .map(|(&node, successors)| {
-            (
-                node,
-                successors
-                    .iter()
-                    .map(|&succ| (succ, 1))
-                    .collect::<HashMap<_, _>>()
-                    .into(),
-            )
-        })
+        .map(|(&node, successors)| (node, successors.iter().map(|&succ| (succ, 1)).collect()))
         .collect();
 
     let mut min_cut_size = usize::MAX;
@@ -80,7 +70,6 @@ fn stoer_wagner<'a>(graph: &Graph<'a>) -> MinCutInfo<'a> {
         let mut u = u;
 
         let mut heap: PriorityQueue<&str, usize> = u_successors
-            .borrow()
             .iter()
             .map(|(&succ, &weight)| (succ, weight))
             .collect();
@@ -89,7 +78,7 @@ fn stoer_wagner<'a>(graph: &Graph<'a>) -> MinCutInfo<'a> {
             (u, _) = heap.pop().unwrap();
 
             partition_a.insert(u);
-            for (&successor, &weight) in weighted_graph[u].borrow().iter() {
+            for (&successor, &weight) in weighted_graph[u].iter() {
                 if !partition_a.contains(successor)
                     && !heap.change_priority_by(successor, |p| *p += weight)
                 {
@@ -111,25 +100,29 @@ fn stoer_wagner<'a>(graph: &Graph<'a>) -> MinCutInfo<'a> {
         if i == graph.len() - 2 {
             break;
         }
+
         // contract u and v into 1 node
-        let mut combined_succs = weighted_graph[u].borrow_mut();
-        combined_succs.remove(v);
-        for (&successor, &weight) in weighted_graph[v].borrow().iter() {
+        for (successor, weight) in weighted_graph.remove(v).unwrap() {
             if successor == u {
                 continue;
             }
 
-            let combined_weight = combined_succs.entry(successor).or_default();
+            let combined_weight = weighted_graph
+                .get_mut(u)
+                .unwrap()
+                .entry(successor)
+                .or_default();
 
             *combined_weight += weight;
 
-            let mut succ_succs = weighted_graph[successor].borrow_mut();
-            succ_succs.insert(u, *combined_weight);
+            let combined_weight = *combined_weight;
+
+            let succ_succs = weighted_graph.get_mut(successor).unwrap();
+            succ_succs.insert(u, combined_weight);
             succ_succs.remove(v);
         }
-        drop(combined_succs);
 
-        weighted_graph.remove(v);
+        weighted_graph.get_mut(u).unwrap().remove(v);
     }
 
     let mut contractions_graph: Graph = HashMap::new();
